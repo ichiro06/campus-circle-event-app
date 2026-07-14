@@ -1,0 +1,10 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: campus-circle-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
