@@ -1,6 +1,10 @@
-import { events } from "@/lib/campusData";
+import { getEvents } from "@/lib/api";
 
-export default function EventsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function EventsPage() {
+  const events = await getEvents();
+
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="mb-8">

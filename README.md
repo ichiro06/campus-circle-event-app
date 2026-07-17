@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Campus Circle Event App
 
-## Getting Started
+大学生向けのサークル検索・イベント告知モバイルアプリです。
 
-First, run the development server:
+## 構成
+
+- モバイルアプリ: React Native / Expo / TypeScript
+- フロントエンド: Next.js / TypeScript
+- バックエンド: FastAPI / Python
+- データベース: PostgreSQL 16
+- 実行環境: Docker Compose（FastAPI・PostgreSQL）
+
+モバイルアプリは `mobile` ディレクトリにあります。現在のNext.js画面は技術検証用のWebフロントエンドです。
+
+データは `PostgreSQL -> FastAPI -> React Native` の順に取得する構成で開発します。
+
+## モバイルアプリ
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd ~/Developer/campus-circle-event-app/mobile
+npm install
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+詳しい操作は `mobile/README.md` を参照してください。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Web・API起動方法
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Docker Desktopを起動します。
+2. FastAPIとPostgreSQLを起動します。
 
-## Learn More
+```bash
+cd ~/Developer/campus-circle-event-app/backend
+docker compose up -d --build
+```
 
-To learn more about Next.js, take a look at the following resources:
+3. 接続状態を確認します。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+curl http://localhost:8000/health
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`{"status":"ok","database":"connected"}` と表示されれば、FastAPIとPostgreSQLの接続は成功です。
 
-## Deploy on Vercel
+4. Next.jsを起動します。
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+cd ~/Developer/campus-circle-event-app
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+5. ブラウザで http://localhost:3000 を開きます。
+
+## 主な確認先
+
+- Webアプリ: http://localhost:3000
+- FastAPIヘルスチェック: http://localhost:8000/health
+- FastAPIドキュメント: http://localhost:8000/docs
+- サークルAPI: http://localhost:8000/api/circles
+- イベントAPI: http://localhost:8000/api/events
+
+## 終了方法
+
+Next.jsを起動したTerminalで `Control + C` を押します。その後、Dockerを停止します。
+
+```bash
+cd ~/Developer/campus-circle-event-app/backend
+docker compose down
+```
+
+PostgreSQLのデータはDocker volumeに保存されるため、通常の `docker compose down` では削除されません。

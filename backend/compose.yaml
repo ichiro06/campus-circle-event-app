@@ -1,4 +1,21 @@
 services:
+  db:
+    image: postgres:16
+    container_name: campus-circle-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: campus
+      POSTGRES_PASSWORD: campus_password
+      POSTGRES_DB: campus_circle_app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U campus -d campus_circle_app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - campus-postgres-data:/var/lib/postgresql/data
+
   api:
     build:
       context: .
@@ -6,5 +23,14 @@ services:
     container_name: campus-circle-api
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://campus:campus_password@db:5432/campus_circle_app
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - .:/app
+
+volumes:
+  campus-postgres-data:
+    name: postgres_campus-postgres-data
