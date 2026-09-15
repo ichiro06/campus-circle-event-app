@@ -4,7 +4,6 @@ from collections.abc import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql+psycopg://campus:campus_password@localhost:5432/campus_circle_app",
@@ -18,6 +17,6 @@ class Base(DeclarativeBase):
     pass
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db() -> Generator[Session]:
     with SessionLocal() as session:
         yield session

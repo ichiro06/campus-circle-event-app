@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 
 from models import CampusEvent, Circle
 
-
 CIRCLES = [
     {
         "name": "プログラミング研究会",
