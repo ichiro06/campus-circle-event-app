@@ -1,6 +1,8 @@
 # Campus Circle Mobile
 
-iOS・Android向けのReact Native / Expoアプリです。
+React Native / Expoで作成したiOS・Android向けの正式な製品clientです。2026-09-01に、構築済みのExpo＋FastAPI＋PostgreSQL環境を正式構成として再採用しました。
+
+プロジェクト全体の環境構築は`../docs/development-setup.md`、正式構成は`../docs/architecture.md`を参照してください。現在は静的な初期画面まで実装済みで、FastAPI接続、認証、検索、掲載等の製品機能は未実装です。
 
 ## 使用技術
 
@@ -14,8 +16,11 @@ iOS・Android向けのReact Native / Expoアプリです。
 
 ```bash
 cd ~/Developer/campus-circle-event-app/mobile
-npm install
+npm ci
+cp .env.example .env.local
 ```
+
+`.env.local`の`EXPO_PUBLIC_API_BASE_URL`は、iOS Simulatorでは`http://127.0.0.1:8000`、標準Android Emulatorでは`http://10.0.2.2:8000`を使用します。`EXPO_PUBLIC_`の値はapp bundleから読めるため、secretやservice role keyを入れないでください。
 
 ## 開発サーバー
 
@@ -52,9 +57,8 @@ npm run android
 ## 検査
 
 ```bash
-npm run lint
-npx tsc --noEmit
+npm run check
 npx expo-doctor@latest
 ```
 
-アプリの画面は `src/app`、共通コンポーネントやAPI処理は今後 `src` 以下に追加します。
+`npm run check`はLint、TypeScript型検査、Jest testを実行します。画面は`src/app`、testは`__tests__`、公開可能な環境変数の検証は`src/config/environment.ts`にあります。今後の製品機能は、確定済み要件とAPI契約に従ってこのprojectへ実装します。
