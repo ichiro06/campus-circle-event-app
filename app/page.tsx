@@ -8,8 +8,8 @@ export default function Home() {
           <p className="text-sm font-semibold text-blue-700">Campus Circle Event App</p>
           <h1 className="mt-3 text-4xl font-bold">サークルとイベントをまとめて探す</h1>
           <p className="mt-4 max-w-2xl text-gray-600">
-            公式サイト、SNS、口コミに分散しがちな学生団体の情報を一元化し、
-            新入生や途中入部希望者が探しやすい状態にするためのWebアプリです。
+            この画面は製品Webではなく、iOS・Androidアプリ向けFastAPIの
+            読み取り結果を確認するための技術検証です。
           </p>
         </div>
 
