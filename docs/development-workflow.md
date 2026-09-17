@@ -40,9 +40,20 @@ SlackとCodex Cloudの直接連携は今回の対象外とする。導入条件�
 
 ### Pull Requestのmergeとcommit identity
 
+通常の製品開発は次の順序で進め、`main`への直接pushを通常の開発フローにしない。
+
+```text
+branch
+  -> Pull Request
+  -> CI
+  -> review
+  -> human approval
+  -> merge
+```
+
 Pull Requestの標準merge方式はGitHubの `Create a merge commit` とする。review済みの各commitとSHAを保持し、変更理由、切り戻し、原因調査を追跡可能にするためである。`Squash and merge` または `Rebase and merge` は、対象Pull Requestごとに人間が明示承認した場合だけ使用する。
 
-CI成功とAI reviewはmerge可否の判断材料であり、それだけで承認とはしない。人間が `Files changed` と検証結果を確認し、明示的にmergeを承認する。auto-mergeは使用しない。
+CI成功とAI reviewはmerge可否の判断材料であり、それだけで承認とはしない。人間が `Files changed` と検証結果を確認し、明示的にmergeを承認する。auto-mergeは標準運用にせず、特定のPull Requestまたは用途で採用する場合は、その都度人間の明示承認を必要とする。
 
 Public repositoryで個人用email addressを新たに公開しないため、今後のcommit author emailにはrepository local Git設定のGitHub提供noreply emailを使用する。実際のaddressは追跡対象fileへ記載せず、共同開発者のglobal設定は変更しない。既存commitは履歴と署名の安定性を優先し、email変更だけを目的に書き換えない。
 

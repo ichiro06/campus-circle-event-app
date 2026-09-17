@@ -694,7 +694,7 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 
 - 日付: 2026-09-17
 - 状態: 採用
-- 決定内容: Pull Requestは原則としてGitHubの `Create a merge commit` でmergeする。`Squash and merge` または `Rebase and merge` は対象Pull Requestごとの人間による明示承認を必要とする。CI成功やAI reviewだけではmergeせず、人間が `Files changed` と検証結果を確認して承認する。auto-mergeは使用しない。
+- 決定内容: 通常の製品開発は `branch -> Pull Request -> CI -> review -> human approval -> merge` の順で進め、`main`への直接pushを通常の開発フローにしない。Pull Requestは原則としてGitHubの `Create a merge commit` でmergeする。`Squash and merge` または `Rebase and merge` は対象Pull Requestごとの人間による明示承認を必要とする。CI成功やAI reviewだけではmergeせず、人間が `Files changed` と検証結果を確認して承認する。auto-mergeは標準運用にせず、特定のPull Requestまたは用途で採用する場合は、その都度人間の明示承認を必要とする。
 - 決定理由: review済みcommitの境界とSHAを保持すると、意図の追跡、部分的な切り戻し、原因調査を行いやすい。小さく意味のあるcommitへ分割する本repositoryのbaseline運用とも整合し、人間の最終判断を自動化に置き換えないため。
 - 旧方針: merge方式と最終承認条件をrepositoryの正式ルールとして明文化していなかった。
 - 根拠: PR #1の人間reviewとmerge判断、GitHubのPull Request merge公式仕様、`AGENTS.md`、`CONTRIBUTING.md`、`docs/development-workflow.md`。

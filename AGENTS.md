@@ -50,9 +50,10 @@
 
 ## Git / Pull Request運用
 
+- 通常の製品開発は `branch -> Pull Request -> CI -> review -> human approval -> merge` の順で進め、`main`への直接pushを通常の開発フローにしない。
 - Pull Requestの標準merge方式はGitHubの `Create a merge commit` とする。review済みcommitの境界とSHAを保持し、変更理由、切り戻し、原因調査を追跡できる状態を優先する。
 - `Squash and merge` または `Rebase and merge` を使う場合は、対象Pull Requestごとに人間の明示承認を得る。履歴を整える目的だけで自動選択しない。
-- CI成功やAI reviewだけをmerge承認としない。人間が `Files changed` と検証結果を確認し、明示的に承認してからmergeする。auto-mergeは使用しない。
+- CI成功やAI reviewだけをmerge承認としない。人間が `Files changed` と検証結果を確認し、明示的に承認してからmergeする。auto-mergeは標準運用にせず、特定のPull Requestまたは用途で採用する場合は、その都度人間の明示承認を得る。
 - 今後のcommit author emailには、このrepositoryのlocal Git設定に登録したGitHub提供のnoreply emailを使う。実際のemail addressは追跡対象文書へ記載せず、email変更だけを目的とした既存commitの履歴書換えは行わない。
 
 ## プロジェクト固有の前提
