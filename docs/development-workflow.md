@@ -2,7 +2,7 @@
 
 - 状態: 正式運用
 - 初版: 2026-07-25
-- 最終更新日: 2026-09-14
+- 最終更新日: 2026-09-17
 - 対象: Campus Circle Event App の要件管理、開発作業、意思決定、連絡
 
 ## 1. 目的と対象範囲
@@ -37,6 +37,14 @@ SlackとCodex Cloudの直接連携は今回の対象外とする。導入条件�
 コーディング可能範囲と未確定blockerは`docs/coding-readiness.md`を確認する。Pull Requestでは`.github/workflows/ci.yml`の検査を通し、`.github/pull_request_template.md`に根拠となる要件IDと確認結果を記録する。依存更新はDependabotのPull Requestも通常のreviewとtestを省略しない。
 
 今後の正式な要件定義の一次情報は、Notionの「アプリ開発プロジェクトWiki」→「議事録」データベース→「第1回要件定義議事録」ページとする。2026-08-23にページ名と階層を読み取り確認した。`docs/requirements.md` はこのページを同期した実装基準であり、過去のCloud上Markdownは反映時点を識別する参照履歴に留める。要件を変更するときは、Slack発言やCodexの判断だけで変更せず、人間がNotion上の内容・承認状態を確認してからrepository文書と同期する。
+
+### Pull Requestのmergeとcommit identity
+
+Pull Requestの標準merge方式はGitHubの `Create a merge commit` とする。review済みの各commitとSHAを保持し、変更理由、切り戻し、原因調査を追跡可能にするためである。`Squash and merge` または `Rebase and merge` は、対象Pull Requestごとに人間が明示承認した場合だけ使用する。
+
+CI成功とAI reviewはmerge可否の判断材料であり、それだけで承認とはしない。人間が `Files changed` と検証結果を確認し、明示的にmergeを承認する。auto-mergeは使用しない。
+
+Public repositoryで個人用email addressを新たに公開しないため、今後のcommit author emailにはrepository local Git設定のGitHub提供noreply emailを使用する。実際のaddressは追跡対象fileへ記載せず、共同開発者のglobal設定は変更しない。既存commitは履歴と署名の安定性を優先し、email変更だけを目的に書き換えない。
 
 ## 3. SlackからNotionへ移す基準
 

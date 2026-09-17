@@ -1,6 +1,6 @@
 # 技術・設計上の決定
 
-最終更新日: 2026-09-15（実装blockerの詳細仕様と非機能目標を確定）
+最終更新日: 2026-09-17（Pull Requestのmerge方式とcommit identityを確定）
 
 この文書は、過去の方針と最新方針を混同しないための決定記録である。旧方針を消さず、何から何へ変更したかを残す。環境構築だけでは判断できない内容は「未確定」とする。
 
@@ -37,6 +37,8 @@
 - manager確認の証拠・SLA・保持: DEC-056
 - iOS Sign in with Apple: DEC-057
 - 非機能目標: DEC-058
+- Pull Requestのmerge方式: DEC-059
+- commit author email: DEC-060
 
 DEC-001からDEC-043には、検討経緯を残すため旧方針も記録している。状態が「置換」の決定内容や補足は現在の採用方針ではないため、上記の決定と各正式仕様を優先して読む。
 
@@ -687,6 +689,24 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - 根拠: `docs/non-functional-requirements.md`、Expo、Android、Apple、OWASP、Supabase公式資料。
 
 月額上限額と有料planの契約は支払権限を持つ開発者の決定として残す。一般公開で99.5%と日次backupを満たせない場合は、要件を黙って下げず公開範囲を限定する。
+
+## DEC-059: Pull Requestの標準merge方式をmerge commitとする
+
+- 日付: 2026-09-17
+- 状態: 採用
+- 決定内容: Pull Requestは原則としてGitHubの `Create a merge commit` でmergeする。`Squash and merge` または `Rebase and merge` は対象Pull Requestごとの人間による明示承認を必要とする。CI成功やAI reviewだけではmergeせず、人間が `Files changed` と検証結果を確認して承認する。auto-mergeは使用しない。
+- 決定理由: review済みcommitの境界とSHAを保持すると、意図の追跡、部分的な切り戻し、原因調査を行いやすい。小さく意味のあるcommitへ分割する本repositoryのbaseline運用とも整合し、人間の最終判断を自動化に置き換えないため。
+- 旧方針: merge方式と最終承認条件をrepositoryの正式ルールとして明文化していなかった。
+- 根拠: PR #1の人間reviewとmerge判断、GitHubのPull Request merge公式仕様、`AGENTS.md`、`CONTRIBUTING.md`、`docs/development-workflow.md`。
+
+## DEC-060: 今後のcommitにGitHub noreply emailを使用する
+
+- 日付: 2026-09-17
+- 状態: 採用
+- 決定内容: 今後のcommit author emailには、GitHub accountに対応するID-based noreply emailをrepository local Git設定で使用する。実際のaddressは追跡対象fileへ記載せず、共同開発者のglobal Git設定を変更しない。既存commitはemail変更だけを目的に書き換えない。
+- 決定理由: GitHub上のauthor attributionを保ちながら、Public repositoryの新しいcommit metadataへ個人用email addressを公開しないため。repository local設定なら適用範囲が明確で、他projectや共同開発者へ影響せず、運用確認も容易である。既存履歴の書換えはcommit SHA、review、参照の安定性を損なうため行わない。
+- 旧方針: 開発端末の通常email設定を継承し、repository単位のcommit email方針を定めていなかった。
+- 根拠: GitHubのcommit email設定・email address公式仕様、`AGENTS.md`、`CONTRIBUTING.md`、`docs/development-workflow.md`。
 
 ## 要確認・次workへ引き継ぐ項目
 
