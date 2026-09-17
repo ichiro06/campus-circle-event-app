@@ -17,6 +17,10 @@
 - AuthenticationとAuthorizationを分け、Google login成功だけでcircle manager権限を付与しない。
 - `.env`、access token、PAT、SSH秘密鍵、Supabase service role key、署名鍵をcommitしない。
 - 仕様・構成・手順を変えた場合は、関係する文書とdecision historyも更新する。
+- 通常の製品開発は `branch -> Pull Request -> CI -> review -> human approval -> merge` の順で進め、`main`への直接pushを通常の開発フローにしない。
+- Pull Requestは原則としてGitHubの `Create a merge commit` でmergeし、review済みcommitとSHAを保持する。squashまたはrebaseは、そのPull Requestについて人間が明示承認した場合だけ使用する。
+- CI成功やAI reviewだけでmergeせず、人間が `Files changed` と検証結果を確認して明示承認する。auto-mergeは標準運用にせず、利用する場合は対象Pull Requestごとに人間の明示承認を必要とする。
+- 今後のcommitにはrepository local設定のGitHub noreply emailを使う。実addressを追跡対象fileへ書かず、既存履歴はemail変更だけを理由に書き換えない。
 
 ## ローカル確認
 
