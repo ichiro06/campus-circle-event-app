@@ -1,17 +1,5 @@
-from pydantic import BaseModel, ConfigDict
-
-
-def to_camel(value: str) -> str:
-    first, *rest = value.split("_")
-    return first + "".join(word.capitalize() for word in rest)
-
-
-class ApiModel(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        from_attributes=True,
-        populate_by_name=True,
-    )
+from api.models import ApiModel
+from api.models import to_camel as to_camel
 
 
 class CircleRead(ApiModel):
