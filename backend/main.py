@@ -7,6 +7,8 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from api import install_api_foundation
+from api.v1 import router as api_v1_router
 from database import Base, SessionLocal, engine, get_db
 from models import CampusEvent, Circle
 from schemas import CircleRead, EventRead
@@ -23,7 +25,9 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Campus Circle API", lifespan=lifespan)
+app = FastAPI(title="Campus Circle API", version="1.0.0", lifespan=lifespan)
+
+install_api_foundation(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +41,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(api_v1_router)
 
 
 @app.get("/")

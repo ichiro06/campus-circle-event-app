@@ -1,6 +1,7 @@
 # macOS開発環境
 
 最終環境監査日: 2026-09-15
+API共通基盤確認日: 2026-09-18
 正式方針反映日: 2026-09-14
 
 この文書は、現在のリポジトリと開発端末を照合したmacOS向けセットアップ手順である。バージョンは監査端末で確認した値であり、プロジェクトがすべてを厳密に固定しているわけではない。
@@ -32,7 +33,7 @@
 | Python | `uv`とuv管理のPython 3.13.14を導入 | 使用可能。ただし `python3` はmacOS標準の3.9.6を指す |
 | コンテナ | Docker DesktopとDocker Composeを導入 | 製品APIとローカルPostgreSQLの開発で使用可能 |
 | Web technical verification | Next.js、React、TypeScript、Tailwind CSSの依存関係を導入 | FastAPIのread API接続確認用。製品経路ではない |
-| 製品API基盤 | FastAPI、Uvicorn、SQLAlchemy、psycopgをDockerイメージへ導入 | 起動、PostgreSQL接続、読み取りAPIを確認済み。認証・書込みは未実装 |
+| 製品API基盤 | FastAPI、Uvicorn、SQLAlchemy、psycopgをDockerイメージへ導入 | 起動、PostgreSQL接続、prototype読み取りAPI、`/api/v1`共通response・error・request ID・OpenAPI基盤を確認済み。正式resource・認証・書込みは未実装 |
 | ローカル製品DB | PostgreSQL 16をDocker Composeで構築 | FastAPI接続とprototype seedを確認済み。正式`app_private`初回Alembic revisionを作成・一時DBで往復検証済み |
 | 製品モバイル基盤 | React Native、Expo、Expo Routerを `mobile/` に導入 | 初期画面、Lint、型検査、Jest test、Expo Doctorを確認済み。API・認証・製品機能は未実装 |
 | 自動検査 | GitHub Actions、Jest、React Native Testing Libraryを導入 | local testは確認済み。GitHub上のCIはcommit・push後に初回確認が必要 |
@@ -62,7 +63,7 @@ Build / submission: EAS Build / EAS Submit
 Distribution: App Store / Google Play
 ```
 
-現在のExpo画面はFastAPI未接続で、FastAPIも認証・認可・正式書込みendpointを持たない。正式schemaはGit上のmigrationとして確定したが、共有開発DBへの適用とORM接続は未実装であるため、構成採用と製品機能完成を混同しない。
+現在のExpo画面はFastAPI未接続である。FastAPIには`/api/v1`共通基盤があるが、認証・認可・正式product resource・書込みendpointは未実装である。正式schemaはGit上のmigrationとして確定したが、共有開発DBへの適用とORM接続は未実装であるため、構成採用と製品機能完成を混同しない。
 
 ## 前提
 
@@ -350,8 +351,13 @@ uv pip install --python .venv/bin/python -r requirements-dev.lock
 .venv/bin/ruff check .
 .venv/bin/ruff format --check .
 .venv/bin/pytest
+.venv/bin/python generate_openapi.py --check openapi.json
 .venv/bin/alembic history
 ```
+
+正式APIのOpenAPI snapshotは`backend/openapi.json`へ置き、`/api/v1`だけを収録して既存technical verification endpointを含めない。正式endpointの変更時は
+`backend/`で`.venv/bin/python generate_openapi.py --output openapi.json`を実行し、
+CIでは`--check`により再生成結果との差分を検出する。生成TypeScript clientは後続workで追加する。
 
 Alembic historyには`20260915_0001 (head)`が表示される。PostgreSQL起動後、正式schemaを初めて適用する場合は次を実行する。
 
@@ -420,6 +426,14 @@ npx expo-doctor@latest
 - Git remoteは`git@github.com:ichiro06/campus-circle-event-app.git`のままである。commit、push、共同開発者招待、ruleset変更は行っていない。
 - Mobile Lint・TypeScript・2 suites / 5 tests、Expo Doctor 21 / 21、Backend Ruff・format・pytest 5件、Next.js technical verificationのLint・build、Alembic history、CI YAML、`git diff --check`が成功した。
 
+2026-09-18のAPI共通基盤確認で確認した項目:
+
+- `/api/v1/health`がsuccess envelopeとrequest IDを返した。
+- RFC 9457 Problem Details、validation error、camelCase、UUID・UTC日時・日付、pagination、idempotency error contractを自動testで確認した。
+- OpenAPI snapshotの再生成と差分checkがlocal環境・Docker環境の双方で成功した。
+- Backend Ruff、format、pytest 25件、Alembic history、`git diff --check`が成功した。
+- Docker Composeで既存`/health`、`/api/circles`、`/api/events`の疎通を再確認し、永続volumeを削除せず停止した。
+
 既存の `mobile/README.md` には、iOS SimulatorとAndroid Emulatorで初期画面を表示確認済みと記録されている。2026-07-25の文書監査では両Simulatorの画面表示を再実行していないため、将来のUI変更時には再確認する。
 
 ## 未実施・未整備
@@ -427,7 +441,7 @@ npx expo-doctor@latest
 正式モバイル構成について未実施のもの:
 
 - ExpoからFastAPIへのversioned HTTPS JSON通信
-- FastAPIのSupabase Auth JWT検証、circle単位認可、正式`/api/v1` endpointとwrite API
+- FastAPIのSupabase Auth JWT検証、circle単位認可、正式`/api/v1` product resource endpointとwrite API
 - 正式schema用のSQLAlchemy mapping、repository、正式seed、OpenAPI generated client
 - Supabase clientと必要なdependencyの導入
 - Supabase development / staging / production projectの作成
@@ -456,5 +470,5 @@ Next.js technical verificationについて未実施・非対象のもの:
 - `mobile/` の `npm audit` は2026-09-14時点で18件（moderate 14件、high 4件）を報告する。Expo / Metro等の推移依存であり、`npm audit fix --force`はExpo Router / Splash Screenを非互換versionへ変更するため適用しない。DependabotとExpo SDK patchを追跡し、release前に再監査する。
 - `~/.zprofile` には `brew shellenv` が重複して記載されている。動作への影響は確認されていないが、将来整理できる。
 - Android Emulatorは通常のサンドボックス内コマンドではCPU機能エラーになる場合がある。macOS上で通常起動すると動作する。
-- mobile製品clientはAPI未接続である。正式契約は`docs/api-contract.md`で確定済みだが、current read APIはunversioned technical verificationのままである。新規実装は`/api/v1`へ行う。
+- mobile製品clientはAPI未接続である。正式契約と`/api/v1`共通基盤は存在するが、current circle / event read APIはunversioned technical verificationのままである。新規product resourceは`/api/v1`へ実装する。
 - Docker Desktop、Simulator、Expo開発サーバーはメモリを使用するため、不要なものは停止する。

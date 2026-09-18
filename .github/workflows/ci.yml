@@ -53,6 +53,7 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest
+      - run: python generate_openapi.py --check openapi.json
       - run: alembic history
 
   backend:
