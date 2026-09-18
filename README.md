@@ -25,7 +25,7 @@
 正式構成は文書上で確定した段階で、製品機能はまだ実装していません。
 
 - `mobile/`: React Native / Expoの正式製品client。現在はstatic initial screen
-- `backend/`: 正式なFastAPI API基盤。現在はDocker Compose PostgreSQL 16に接続したread技術検証
+- `backend/`: 正式なFastAPI API基盤。既存read技術検証と並行して、`/api/v1`の共通response・error・request ID・OpenAPI基盤まで実装済み。正式product resourceは未実装
 - root Next.js: FastAPIのcircle / event read APIを表示するtechnical verification。製品機能は追加しない
 - Supabase Auth / PostgreSQL / Storage: 未接続
 - Google / email login: 未実装
@@ -116,8 +116,12 @@ uv pip install --python .venv/bin/python -r requirements-dev.lock
 .venv/bin/ruff check .
 .venv/bin/ruff format --check .
 .venv/bin/pytest
+.venv/bin/python generate_openapi.py --check openapi.json
 .venv/bin/alembic history
 ```
+
+`backend/openapi.json` は`/api/v1`だけを収録する正式API契約の再現可能なsnapshotです。既存の技術検証endpointは含めません。正式endpointを変更した場合は、
+`backend/` で `.venv/bin/python generate_openapi.py --output openapi.json` を実行し、差分をreviewします。
 
 `alembic upgrade head`は正式な`app_private` schemaを作る。既存のread技術検証用`public.circles` / `public.events`は変更しない。共有・本番DBで`alembic downgrade`を実行しない。
 

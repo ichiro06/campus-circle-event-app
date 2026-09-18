@@ -484,6 +484,6 @@ iOS版では一般Googleログインを提供し、大学発行アカウント�
 
 `mobile/`のExpo projectは正式な製品clientだが、現在は静的な初期画面までである。FastAPI接続、Supabase Auth、Googleログイン、メール登録、パーソナライズ、正式検索、マイページ、サークル編集、確認、違反報告は未実装である。
 
-`backend/`のFastAPIとDocker Compose PostgreSQL 16は正式なAPI・開発DBの基盤として再採用したが、現在はhealth、circle list、event listのread技術検証段階である。本番Supabase、Render、EAS、App Store、Google Playは未構築である。
+`backend/`のFastAPIとDocker Compose PostgreSQL 16は正式なAPI・開発DBの基盤として再採用した。既存health、circle list、event listのread技術検証と並行して、`/api/v1`の共通response、Problem Details、request ID、OpenAPI contract checkまで実装済みである。正式なproduct resource endpointは未実装で、本番Supabase、Render、EAS、App Store、Google Playも未構築である。
 
 ルートNext.jsはFastAPIのread APIを表示する技術検証であり、初期製品の実装経路ではない。製品機能を追加しない。

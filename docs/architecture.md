@@ -243,7 +243,7 @@ Expo SDKは同一SDK内の公式互換versionへ揃える。major SDK update、`
 | 項目 | 現在 | 正式化に必要なこと |
 | --- | --- | --- |
 | Expo | static initial screen、両Simulator環境、API URL validation、Lint・型検査・Jest testあり | API接続、正式navigation、auth、各機能、実機確認 |
-| FastAPI | health、circle list、event listのread API、Ruff / pytest baseline | versioned API、auth、write、authorization、audit |
+| FastAPI | health、circle list、event listのread API、`/api/v1`共通response・error・request ID・OpenAPI基盤、Ruff / pytest baseline | 公開product resource、auth、write、authorization、audit |
 | Local PostgreSQL | Docker Compose PostgreSQL 16とprototype seed。`app_private`正式初回revisionあり | 正式ORM mapping、認証連携後のseed、repository層、各機能migration |
 | Supabase | project / dependency未構築 | PostgreSQL、Auth、Storage、environment分離 |
 | Render | project未作成 | build、start、secret、health check、monitoring |
@@ -253,7 +253,7 @@ Expo SDKは同一SDK内の公式互換versionへ揃える。major SDK update、`
 | Next.js | FastAPI read API表示の技術検証。offline build対応、既知Critical修正済み | 製品機能を追加せず、保持・archive時期を別途決定 |
 | Vercel | projectなし | 初期製品では使用しない |
 
-2026-09-14に外部projectを必要としないdependency整合、test、CI、環境変数、共同開発基盤を追加し、2026-09-15に画面、API、data、認証運用、非機能要件と初回schemaを正式化した。正式な製品endpoint、mobile接続、auth、deployは未実装である。
+2026-09-14に外部projectを必要としないdependency整合、test、CI、環境変数、共同開発基盤を追加し、2026-09-15に画面、API、data、認証運用、非機能要件と初回schemaを正式化した。2026-09-18に`/api/v1`共通基盤を追加したが、正式なproduct resource endpoint、mobile接続、auth、deployは未実装である。
 
 ## 13. 要確認事項
 
