@@ -59,9 +59,9 @@ class PageMetadata(ApiModel):
     limit: int = Field(ge=1, le=MAX_PAGE_LIMIT)
 
     @model_validator(mode="after")
-    def cursor_is_required_when_more_results_exist(self) -> "PageMetadata":
-        if self.has_more and self.next_cursor is None:
-            raise ValueError("next_cursor is required when has_more is true")
+    def cursor_presence_matches_has_more(self) -> "PageMetadata":
+        if self.has_more != (self.next_cursor is not None):
+            raise ValueError("next_cursor must be present if and only if has_more is true")
         return self
 
 

@@ -118,11 +118,15 @@ class IdempotencyKeyRequiredError(ApplicationError):
 
 
 class RequestInProgressError(ApplicationError):
-    def __init__(self, *, retry_after_seconds: int | None = None) -> None:
-        headers = (
-            {"Retry-After": str(retry_after_seconds)} if retry_after_seconds is not None else None
+    def __init__(self, *, retry_after_seconds: int) -> None:
+        if isinstance(retry_after_seconds, bool) or not isinstance(retry_after_seconds, int):
+            raise TypeError("retry_after_seconds must be an integer")
+        if retry_after_seconds < 0:
+            raise ValueError("retry_after_seconds must be greater than or equal to 0")
+        super().__init__(
+            "REQUEST_IN_PROGRESS",
+            headers={"Retry-After": str(retry_after_seconds)},
         )
-        super().__init__("REQUEST_IN_PROGRESS", headers=headers)
 
 
 class IdempotencyKeyReusedError(ApplicationError):

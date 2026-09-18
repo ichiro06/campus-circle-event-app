@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, date, datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
@@ -5,6 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import Field, ValidationError
+from starlette.types import Message, Receive, Scope, Send
 
 from api import install_api_foundation
 from api.errors import (
@@ -29,7 +31,7 @@ from api.models import (
     UtcDateTime,
 )
 from api.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, PaginationParams
-from api.request_id import current_request_id
+from api.request_id import RequestIdMiddleware, current_request_id
 from main import app
 
 
@@ -57,6 +59,10 @@ def build_error_test_app() -> tuple[FastAPI, dict[str, UUID | None]]:
         captured["request_id"] = current_request_id()
         raise ApplicationError("CONFLICT")
 
+    @test_app.get("/api/v1/request-in-progress")
+    def request_in_progress() -> dict[str, bool]:
+        raise RequestInProgressError(retry_after_seconds=7)
+
     @test_app.get("/api/v1/explode")
     def explode() -> dict[str, bool]:
         raise RuntimeError(
@@ -78,6 +84,67 @@ def test_api_v1_health_uses_success_envelope_and_unique_request_ids() -> None:
     second_request_id = UUID(second.json()["meta"]["requestId"])
     assert first_request_id != second_request_id
     assert "x-request-id" not in first.headers
+
+
+def test_request_id_middleware_isolates_concurrent_requests_and_cleans_context() -> None:
+    async def exercise_middleware() -> None:
+        request_count = 3
+        arrived = 0
+        all_requests_arrived = asyncio.Event()
+        captured: dict[str, tuple[UUID | None, UUID | None]] = {}
+
+        async def request_app(scope: Scope, _receive: Receive, send: Send) -> None:
+            nonlocal arrived
+            request_id_before_wait = current_request_id()
+            arrived += 1
+            if arrived == request_count:
+                all_requests_arrived.set()
+            await all_requests_arrived.wait()
+            request_id_after_wait = current_request_id()
+            captured[scope["path"]] = (request_id_before_wait, request_id_after_wait)
+            await send({"type": "http.response.start", "status": 204, "headers": []})
+            await send({"type": "http.response.body", "body": b""})
+
+        middleware = RequestIdMiddleware(request_app)
+
+        async def send_request(index: int) -> UUID:
+            path = f"/request/{index}"
+            scope: Scope = {
+                "type": "http",
+                "asgi": {"version": "3.0", "spec_version": "2.3"},
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": path,
+                "raw_path": path.encode(),
+                "query_string": b"",
+                "headers": [],
+                "client": ("testclient", 50000 + index),
+                "server": ("testserver", 80),
+                "state": {},
+            }
+
+            async def receive() -> Message:
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+            async def send(_message: Message) -> None:
+                return None
+
+            await middleware(scope, receive, send)
+            assert current_request_id() is None
+            request_id = scope["state"]["request_id"]
+            assert isinstance(request_id, UUID)
+            return request_id
+
+        request_ids = await asyncio.gather(*(send_request(index) for index in range(request_count)))
+
+        assert len(set(request_ids)) == request_count
+        for index, request_id in enumerate(request_ids):
+            assert captured[f"/request/{index}"] == (request_id, request_id)
+        assert current_request_id() is None
+
+    asyncio.run(exercise_middleware())
+    assert current_request_id() is None
 
 
 def test_success_and_collection_models_serialize_the_formal_wire_types() -> None:
@@ -139,8 +206,24 @@ def test_pagination_uses_cursor_limits_and_omits_final_cursor() -> None:
         with pytest.raises(ValidationError):
             PaginationParams(limit=invalid_limit)
 
+    page_with_more_results = PageMetadata(
+        next_cursor="opaque-next-page",
+        has_more=True,
+        limit=20,
+    )
+    final_page = PageMetadata(has_more=False, limit=20)
+
+    assert page_with_more_results.model_dump() == {
+        "nextCursor": "opaque-next-page",
+        "hasMore": True,
+        "limit": 20,
+    }
+    assert final_page.model_dump() == {"hasMore": False, "limit": 20}
+
     with pytest.raises(ValidationError):
         PageMetadata(has_more=True, limit=20)
+    with pytest.raises(ValidationError):
+        PageMetadata(next_cursor="contradiction", has_more=False, limit=20)
 
 
 def test_validation_error_is_camel_case_problem_details() -> None:
@@ -208,6 +291,30 @@ def test_application_error_reuses_request_lifecycle_id() -> None:
     assert response.json()["requestId"] == str(captured["request_id"])
 
 
+def test_request_in_progress_response_always_includes_retry_after() -> None:
+    test_app, _ = build_error_test_app()
+    response = TestClient(test_app).get("/api/v1/request-in-progress")
+
+    assert response.status_code == 409
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.headers["retry-after"] == "7"
+    assert response.json()["code"] == "REQUEST_IN_PROGRESS"
+
+
+def test_request_in_progress_requires_a_non_negative_integer_delay() -> None:
+    zero_delay = RequestInProgressError(retry_after_seconds=0)
+
+    assert zero_delay.headers == {"Retry-After": "0"}
+    with pytest.raises(ValueError):
+        RequestInProgressError(retry_after_seconds=-1)
+    with pytest.raises(TypeError):
+        RequestInProgressError()
+
+    for invalid_value in (True, 1.5, "1"):
+        with pytest.raises(TypeError):
+            RequestInProgressError(retry_after_seconds=invalid_value)  # type: ignore[arg-type]
+
+
 def test_unexpected_error_does_not_expose_internal_details() -> None:
     test_app, _ = build_error_test_app()
     response = TestClient(test_app, raise_server_exceptions=False).get("/api/v1/explode")
@@ -226,7 +333,7 @@ def test_unexpected_error_does_not_expose_internal_details() -> None:
     [
         (InvalidCursorError(), 400, "INVALID_CURSOR"),
         (IdempotencyKeyRequiredError(), 400, "IDEMPOTENCY_KEY_REQUIRED"),
-        (RequestInProgressError(), 409, "REQUEST_IN_PROGRESS"),
+        (RequestInProgressError(retry_after_seconds=1), 409, "REQUEST_IN_PROGRESS"),
         (IdempotencyKeyReusedError(), 422, "IDEMPOTENCY_KEY_REUSED"),
     ],
 )
