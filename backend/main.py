@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from api import install_api_foundation
 from api.v1 import router as api_v1_router
+from circles.cursor import load_cursor_signing_secret
 from database import Base, SessionLocal, engine, get_db
 from models import CampusEvent, Circle
 from schemas import CircleRead, EventRead
@@ -19,6 +20,7 @@ DatabaseSession = Annotated[Session, Depends(get_db)]
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    load_cursor_signing_secret()
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as session:
         seed_database(session)
