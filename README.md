@@ -22,14 +22,14 @@
 
 ## 現在の状態
 
-正式構成は文書上で確定した段階で、製品機能はまだ実装していません。
+正式構成を基準に、最小の公開Circle read APIまで実装しています。
 
 - `mobile/`: React Native / Expoの正式製品client。現在はstatic initial screen
-- `backend/`: 正式なFastAPI API基盤。既存read技術検証と並行して、`/api/v1`の共通response・error・request ID・OpenAPI基盤まで実装済み。正式product resourceは未実装
+- `backend/`: 正式なFastAPI API基盤。既存read技術検証と分離して、`/api/v1`共通基盤と`app_private`の公開Circle一覧・詳細を実装済み
 - root Next.js: FastAPIのcircle / event read APIを表示するtechnical verification。製品機能は追加しない
 - Supabase Auth / PostgreSQL / Storage: 未接続
 - Google / email login: 未実装
-- home recommendation、formal search、favorite、my page、circle management、report: 未実装
+- mobileの公開Circle検索・詳細UI、home recommendation、favorite、my page、circle management、report: 未実装
 - ExpoからFastAPIへの接続: 未実装
 - Render / EAS / App Store / Google Playのproject・配布設定: 未構築
 
@@ -69,6 +69,7 @@
 
 ```bash
 cd ~/Developer/campus-circle-event-app/backend
+# Git管理外のbackend/.envへ、32 bytes以上の固定CURSOR_SIGNING_SECRETを設定
 docker compose up -d --build
 docker compose exec api alembic upgrade head
 ```
@@ -77,6 +78,7 @@ docker compose exec api alembic upgrade head
 
 ```bash
 curl http://localhost:8000/health
+curl http://localhost:8000/api/v1/circles
 ```
 
 `{"status":"ok","database":"connected"}` が返ったら、別のTerminalでExpoを起動します。
@@ -125,7 +127,7 @@ uv pip install --python .venv/bin/python -r requirements-dev.lock
 
 `alembic upgrade head`は正式な`app_private` schemaを作る。既存のread技術検証用`public.circles` / `public.events`は変更しない。共有・本番DBで`alembic downgrade`を実行しない。
 
-`npm run check`はLint、TypeScript型検査、Jest testを実行します。Pull RequestではGitHub Actionsがmobile、FastAPIのLint・unit test、FastAPI / PostgreSQLの疎通、Next.js技術検証を分けて確認します。CIは現在の変更をcommit・pushした後に有効になります。
+`npm run check`はLint、TypeScript型検査、Jest testを実行します。Pull RequestではGitHub Actionsがmobile、FastAPIのLint・PostgreSQL integration、FastAPI / PostgreSQLの疎通、Next.js技術検証を分け、各Pull Requestのlatest HEADで確認します。
 
 正式なSupabase Auth、本番DB、Storage、Render、EAS、store配布の手順はまだ未整備です。実装可能範囲と決定待ちの項目は`docs/coding-readiness.md`を確認し、external projectの値を推測で登録しないでください。
 

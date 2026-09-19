@@ -75,7 +75,7 @@
 
 ## 4. 人の操作・判断が残るもの
 
-- baseline差分review、commit / push、GitHub Actions初回確認、共同開発者招待、required checks設定（GitHub CLI接続は確認済み）
+- Work 2以降のPull Request review・人間merge承認、共同開発者招待、required checks設定（GitHub CLI接続は確認済み）
 - 正式service名、bundle identifier、Android package name、link domain
 - Supabase / Render / EAS / Apple / Googleのowner、region、plan、支払責任者
 - 許容月額、production monitoring / SMTP等の有料service選定
@@ -87,16 +87,16 @@
 ## 5. 現在の実装事実
 
 - `mobile/`: static initial screen、API URL validation、Lint・型検査・Jestまで。正式navigation・API接続・認証は未実装。
-- `backend/`: health、circle list、event listのunversioned read技術検証。正式`/api/v1`機能は未実装。
+- `backend/`: unversioned read技術検証を維持しつつ、正式`/api/v1`共通基盤と`app_private`公開Circle一覧・詳細を実装済み。認証・書込み・他resourceは未実装。
 - PostgreSQL: prototype public tableに加え、Git上に正式`app_private`初回migrationがある。共有開発DBへの適用は各開発者が明示的に行う。
-- GitHub Actions: migration往復を含む定義あり。commit / push後のGitHub上実行は未確認。
+- GitHub Actions: mobile、Backend PostgreSQL integration、Compose migration往復、Next.jsの4 jobを定義済み。各Pull Requestのlatest HEADの結果をGitHubで確認する。
 - 外部project: Supabase、Render、EAS、各storeは未構築。
 
 ## 6. 次のwork
 
-1. リポジトリとNotionの今回の決定をreviewする。
-2. baseline差分をreview後にcommit / pushし、GitHub上のCIを確認する。
-3. `/api/v1`公開circle readとExpo 4タブの最小vertical sliceを実装する。
+1. Work 2の公開Circle read Pull Requestをreviewし、GitHub上のCIと人間承認を確認する。
+2. Expo 4タブ、共通状態、型付きAPI clientを追加する。
+3. 公開Circle一覧・詳細を両Simulatorで接続し、最小vertical sliceを完成させる。
 4. 外部projectが必要になる直前にowner・identifier・planを確定する。
 5. 認証・profile・favorite・推薦、manager審査の順でpermission test付き実装へ進む。
 
