@@ -12,9 +12,9 @@ if config.config_file_name is not None:
 
 config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 # The first product revision is hand-authored from the approved data dictionary.
-# Runtime Base still describes public technical-verification tables, so exposing
-# it to autogenerate could create destructive diffs. Product ORM metadata will
-# replace None as implementation slices are mapped to the approved schema.
+# Runtime Base still describes public technical-verification tables, while the
+# product metadata is intentionally partial. Exposing either to autogenerate
+# could create destructive diffs, so revisions remain explicitly authored.
 target_metadata = None
 
 
