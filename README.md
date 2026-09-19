@@ -69,7 +69,7 @@
 
 ```bash
 cd ~/Developer/campus-circle-event-app/backend
-# Git管理外のbackend/.envへ、32 bytes以上の固定CURSOR_SIGNING_SECRETを設定
+# 正式Circle APIを使う場合、Git管理外のbackend/.envへ32 bytes以上の固定CURSOR_SIGNING_SECRETを設定
 docker compose up -d --build
 docker compose exec api alembic upgrade head
 ```

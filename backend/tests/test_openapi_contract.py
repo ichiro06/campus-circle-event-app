@@ -75,6 +75,8 @@ def test_contract_openapi_contains_only_the_formal_api_surface() -> None:
     }
     for status in ("400", "422", "500", "503"):
         assert set(list_operation["responses"][status]["content"]) == {PROBLEM_MEDIA_TYPE}
+    invalid_cursor_contract = list_operation["responses"]["400"]["content"][PROBLEM_MEDIA_TYPE]
+    assert invalid_cursor_contract["example"]["code"] == "INVALID_CURSOR"
 
     detail_operation = paths["/api/v1/circles/{circleId}"]["get"]
     assert detail_operation["operationId"] == "getPublicCircle"

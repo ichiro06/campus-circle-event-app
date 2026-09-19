@@ -51,7 +51,18 @@ def api_v1_health(request: Request) -> SuccessResponse[ApiHealth]:
     operation_id="listPublicCircles",
     response_model=CircleCollectionResponse,
     responses={
-        400: openapi_problem_response("Invalid pagination cursor"),
+        400: openapi_problem_response(
+            "Invalid pagination cursor",
+            example={
+                "type": "about:blank",
+                "title": "Bad Request",
+                "status": 400,
+                "detail": "The pagination cursor is invalid.",
+                "instance": "/api/v1/circles",
+                "code": "INVALID_CURSOR",
+                "requestId": "00000000-0000-0000-0000-000000000000",
+            },
+        ),
         422: openapi_problem_response("Request validation failed"),
         500: openapi_problem_response("Unexpected server error"),
         503: openapi_problem_response("Service temporarily unavailable"),

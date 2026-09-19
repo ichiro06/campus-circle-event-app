@@ -268,7 +268,7 @@ postgresql+psycopg://campus:campus_password@db:5432/campus_circle_app
 CURSOR_SIGNING_SECRET=<32-bytes以上の固定secret>
 ```
 
-testとCIは本番値ではない固定test secretを明示的に注入する。secretが未設定または短すぎる場合、FastAPIは起動時に失敗する。
+testとCIは本番値ではない固定test secretを明示的に注入する。secretが未設定または短すぎてもFastAPI自体、health、prototype API、Alembic、OpenAPI生成は利用できるが、正式Circle read APIはfallbackせず、設定が修正されるまでsanitized Problem Detailsで失敗する。
 
 ### Expo製品client
 

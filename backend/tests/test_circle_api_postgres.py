@@ -23,6 +23,7 @@ from app_private.models import (
 from app_private.models import (
     Circle as ProductCircle,
 )
+from circles.cursor import CURSOR_SECRET_ENV
 from database import Base, SessionLocal, engine
 from main import app
 from seed import seed_database
@@ -46,9 +47,18 @@ COST_IDS = (
 )
 TRANSIENT_CIRCLE_ID = UUID("20000000-0000-0000-0000-000000000901")
 TRANSIENT_REVISION_ID = UUID("20000000-0000-0000-0000-000000000902")
+KEYSET_CIRCLE_IDS = tuple(
+    UUID(f"20000000-0000-0000-0000-{index:012d}") for index in range(951, 956)
+)
+KEYSET_REVISION_IDS = tuple(
+    UUID(f"20000000-0000-0000-0000-{index:012d}") for index in range(961, 966)
+)
+KEYSET_QUERY = "Keyset Boundary Fixture"
 
 PUBLISHED_AT = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
 OLDER_PUBLISHED_AT = datetime(2026, 9, 17, 12, 0, tzinfo=UTC)
+KEYSET_SHARED_PUBLISHED_AT = PUBLISHED_AT + timedelta(days=2)
+KEYSET_OLDER_PUBLISHED_AT = PUBLISHED_AT + timedelta(days=1)
 
 
 def _revision(
@@ -113,8 +123,8 @@ def _circle(
 
 
 def _cleanup_fixture(session: Session) -> None:
-    all_circle_ids = (*CIRCLE_IDS, TRANSIENT_CIRCLE_ID)
-    all_revision_ids = (*REVISION_IDS, TRANSIENT_REVISION_ID)
+    all_circle_ids = (*CIRCLE_IDS, TRANSIENT_CIRCLE_ID, *KEYSET_CIRCLE_IDS)
+    all_revision_ids = (*REVISION_IDS, TRANSIENT_REVISION_ID, *KEYSET_REVISION_IDS)
     session.execute(
         update(ProductCircle)
         .where(ProductCircle.id.in_(all_circle_ids))
@@ -663,6 +673,106 @@ def test_keyset_pagination_is_stable_and_total_count_precedes_cursor(client: Tes
     assert final.json()["page"] == {"hasMore": False, "limit": 2, "totalCount": 5}
 
 
+def test_keyset_crosses_equal_timestamp_and_nullable_boundaries_without_gaps(
+    client: TestClient,
+) -> None:
+    fixture_rows = [
+        (
+            KEYSET_CIRCLE_IDS[4],
+            KEYSET_REVISION_IDS[4],
+            KEYSET_SHARED_PUBLISHED_AT,
+        ),
+        (
+            KEYSET_CIRCLE_IDS[3],
+            KEYSET_REVISION_IDS[3],
+            KEYSET_SHARED_PUBLISHED_AT,
+        ),
+        (
+            KEYSET_CIRCLE_IDS[2],
+            KEYSET_REVISION_IDS[2],
+            KEYSET_OLDER_PUBLISHED_AT,
+        ),
+        (KEYSET_CIRCLE_IDS[1], KEYSET_REVISION_IDS[1], None),
+        (KEYSET_CIRCLE_IDS[0], KEYSET_REVISION_IDS[0], None),
+    ]
+    with SessionLocal() as session:
+        session.execute(
+            insert(ProductCircle),
+            [_circle(circle_id) for circle_id, _, _ in fixture_rows],
+        )
+        session.execute(
+            insert(CircleRevision),
+            [
+                _revision(
+                    revision_id,
+                    circle_id,
+                    display_name=f"{KEYSET_QUERY} {index}",
+                    published_at=published_at,
+                )
+                for index, (circle_id, revision_id, published_at) in enumerate(fixture_rows)
+            ],
+        )
+        for circle_id, revision_id, _ in fixture_rows:
+            session.execute(
+                update(ProductCircle)
+                .where(ProductCircle.id == circle_id)
+                .values(published_revision_id=revision_id)
+            )
+        session.commit()
+
+    try:
+        pages: list[dict] = []
+        request_cursors: list[str | None] = []
+        cursor: str | None = None
+        for _ in range(6):
+            request_cursors.append(cursor)
+            params: dict[str, str | int] = {"q": KEYSET_QUERY, "limit": 1}
+            if cursor is not None:
+                params["cursor"] = cursor
+            response = client.get("/api/v1/circles", params=params)
+            assert response.status_code == 200
+            body = response.json()
+            pages.append(body)
+            if not body["page"]["hasMore"]:
+                break
+            cursor = body["page"]["nextCursor"]
+        else:
+            pytest.fail("keyset pagination did not terminate")
+
+        expected_ids = [str(circle_id) for circle_id, _, _ in fixture_rows]
+        actual_ids = [page["data"][0]["id"] for page in pages]
+        assert actual_ids == expected_ids
+        assert len(actual_ids) == len(set(actual_ids)) == len(expected_ids)
+        assert all(page["page"]["totalCount"] == len(expected_ids) for page in pages)
+
+        assert pages[0]["data"][0]["publishedAt"] == pages[1]["data"][0]["publishedAt"]
+        assert UUID(actual_ids[0]) > UUID(actual_ids[1])
+        assert pages[2]["data"][0]["publishedAt"] is not None
+        assert pages[3]["data"][0]["publishedAt"] is None
+
+        null_position_cursor = pages[3]["page"]["nextCursor"]
+        assert request_cursors[4] == null_position_cursor
+        assert pages[4]["data"][0]["publishedAt"] is None
+        assert UUID(actual_ids[3]) > UUID(actual_ids[4])
+        assert pages[4]["page"] == {
+            "hasMore": False,
+            "limit": 1,
+            "totalCount": len(expected_ids),
+        }
+    finally:
+        with SessionLocal() as session:
+            session.execute(
+                update(ProductCircle)
+                .where(ProductCircle.id.in_(KEYSET_CIRCLE_IDS))
+                .values(published_revision_id=None)
+            )
+            session.execute(
+                delete(CircleRevision).where(CircleRevision.id.in_(KEYSET_REVISION_IDS))
+            )
+            session.execute(delete(ProductCircle).where(ProductCircle.id.in_(KEYSET_CIRCLE_IDS)))
+            session.commit()
+
+
 def test_cursor_rejects_tampering_and_filter_mismatch(client: TestClient) -> None:
     first = client.get("/api/v1/circles", params={"limit": 1})
     cursor = first.json()["page"]["nextCursor"]
@@ -749,3 +859,22 @@ def test_empty_collection_and_prototype_endpoints_remain_compatible(client: Test
     assert events.status_code == 200
     assert isinstance(circles.json(), list)
     assert isinstance(events.json(), list)
+
+
+def test_missing_cursor_secret_only_disables_formal_circle_reads(monkeypatch) -> None:
+    monkeypatch.delenv(CURSOR_SECRET_ENV, raising=False)
+
+    with TestClient(app, raise_server_exceptions=False) as secretless_client:
+        for path in ("/health", "/api/circles", "/api/events", "/api/v1/health"):
+            response = secretless_client.get(path)
+            assert response.status_code == 200
+
+        circle_response = secretless_client.get("/api/v1/circles")
+
+    assert circle_response.status_code == 500
+    assert circle_response.headers["content-type"].startswith("application/problem+json")
+    assert circle_response.json()["code"] == "INTERNAL_SERVER_ERROR"
+    assert CURSOR_SECRET_ENV not in circle_response.text
+    assert "Traceback" not in circle_response.text
+    assert "/Users/" not in circle_response.text
+    assert "backend/circles" not in circle_response.text

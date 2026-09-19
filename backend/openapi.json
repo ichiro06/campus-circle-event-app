@@ -1066,6 +1066,15 @@
           "400": {
             "content": {
               "application/problem+json": {
+                "example": {
+                  "code": "INVALID_CURSOR",
+                  "detail": "The pagination cursor is invalid.",
+                  "instance": "/api/v1/circles",
+                  "requestId": "00000000-0000-0000-0000-000000000000",
+                  "status": 400,
+                  "title": "Bad Request",
+                  "type": "about:blank"
+                },
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
