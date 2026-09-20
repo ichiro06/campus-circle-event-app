@@ -27,9 +27,9 @@ React Native / Expo、FastAPI、PostgreSQLというBefore構成は維持する�
 
 実装前のWork 0として、現在の未commit差分を内容別にreviewし、Public repositoryへ共有可能かを確認する。このreviewは未追跡fileを含む現在の状態そのものが対象なので、`origin/main`から作る空の別worktreeではなく、現在のcheckoutと同じdirectory、または現在のworking treeを開始状態として引き継いだ環境で行う。ここではcommit / pushを自動実行せず、共有baselineが人間の確認後に確定してから、以降の実装を`codex/` branchとPull Requestで進める。
 
-1. FastAPIへrequest ID、成功envelope、RFC 9457 errorの共通処理を追加する。
-2. `app_private`の公開circle read repository / Pydantic modelと`GET /api/v1/circles`を実装する。
-3. Expoへ4タブ、共通loading / empty / error / offline component、型付きAPI clientを追加する。
+1. FastAPIへrequest ID、成功envelope、RFC 9457 errorの共通処理を追加する。（Work 1で完了）
+2. `app_private`の公開circle read repository / Pydantic modelと一覧・詳細endpointを実装する。（Work 2で実装・検証済み、Pull Request review待ち）
+3. Expoへ4タブ、共通loading / empty / error / offline component、型付きAPI clientを追加する。（次の実装work）
 4. 公開一覧・詳細のvertical sliceをiOS SimulatorとAndroid Emulatorで接続する。
 5. profile、interest、view、favorite、推薦を認証前提のsliceとして追加する。
 6. manager application、membership、revision、operator reviewをpermission matrix test付きで追加する。
@@ -51,7 +51,7 @@ React Native / Expo、FastAPI、PostgreSQLというBefore構成は維持する�
 
 ## 5. 現在着手してよい範囲
 
-- `app_private`初回migrationを基準とする公開circle read model / repository / endpoint
+- `app_private`初回migrationを基準とする公開circle read model / repository / endpointの保守・拡張
 - `/api/v1`共通response、error、request ID、cursor helperとtest
 - Expo Routerの4タブ・公開詳細・認証route shell
 - loading、empty、error、offline bannerとaccessibility test

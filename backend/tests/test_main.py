@@ -20,8 +20,9 @@ def test_openapi_marks_current_read_endpoints_as_technical_surface() -> None:
     assert {"/health", "/api/circles", "/api/events"} <= paths.keys()
 
 
-def test_openapi_exposes_the_versioned_foundation_without_circle_resources() -> None:
+def test_openapi_exposes_the_versioned_foundation_and_circle_resources() -> None:
     paths = client.get("/openapi.json").json()["paths"]
 
     assert "/api/v1/health" in paths
-    assert "/api/v1/circles" not in paths
+    assert "/api/v1/circles" in paths
+    assert "/api/v1/circles/{circleId}" in paths

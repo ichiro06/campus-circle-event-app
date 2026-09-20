@@ -2,6 +2,7 @@
 
 - 状態: 正式仕様
 - 決定日: 2026-09-15
+- 最終更新日: 2026-09-19
 - 対象: Expo製品clientとFastAPI製品API
 
 ## 1. 基本契約
@@ -94,6 +95,42 @@ errorはRFC 9457のProblem Detailsを使い、`Content-Type: application/problem
 - 全sortはUUIDまで含む安定順序を定義する。
 - filterは同一条件内をOR、異なる種類をANDとする。ただし画面表示とAPI説明に明記する。
 - 利用者入力はparameter bindingで扱い、検索文字列をSQLへ連結しない。
+
+### 4.1 公開Circle Read
+
+Work 2の正式な公開read endpointは次の2つである。データ源はPostgreSQL 16の`app_private` schemaだけとし、`public.circles` / `public.events`および`/api/circles` / `/api/events`の技術検証とは分離する。
+
+- `GET /api/v1/circles`
+- `GET /api/v1/circles/{circleId}`
+
+一覧itemは`id`、`displayName`、`headline`、`summary`、`officialStatus`、`circleType`、`publishedAt`に加え、次の関連情報を返す。DB上nullableなscalarは`null`を許可し、関連がないcollectionは空配列とする。
+
+- `category`: `id`、`name`、`slug`
+- `universities`: `id`、`name`、`slug`、`relationshipType`、nullableなcampus名`campus`
+- `featuredTags`: `is_featured = true`だけを`display_order`順に最大5件。各itemは`id`、`name`、`slug`
+- `activitySchedules`: `weekday`、`timeBand`、`startsAt`、`endsAt`、`note`
+- `activityLocations`: `prefecture`、`city`、`facilityName`、`nearestStation`、`isOnline`、`publicNote`
+
+`headline`はカード用キャッチコピー、`summary`は主な活動内容・短い紹介として、それぞれ`circle_revisions.headline`と`circle_revisions.summary`へ対応する。`weekday`は`1`から`7`を月曜から日曜、DBの`NULL`を`irregular`として扱う。
+
+詳細は一覧のcore情報に、`description`、`recruitingStatus`、`memberCountBand`、`campFrequencyCode`、`activityFrequencyCode`、5種類のrating、`genderBalanceCode`、全`tags`、`costs`を加える。tagは`id`、`name`、`slug`、`isFeatured`、costは`costType`、`amountMinYen`、`amountMaxYen`、`label`、`note`を返す。slug、年会費summary、social link、画像・media、revision ID / version、lifecycle・review・operator・manager・evidence・audit・storage object keyは返さない。
+
+公開対象は次の全条件を満たすCircleと、その`published_revision_id`が指すrevisionだけである。一覧と詳細で同じpredicateを使い、不存在・削除済み・非公開・停止・published revisionなし・Circleとの不整合・publishedでないrevisionは、詳細ではすべて同じ`404 NOT_FOUND`とする。
+
+- `circles.deleted_at IS NULL`
+- `circles.lifecycle_status = 'published'`
+- `circles.published_revision_id IS NOT NULL`
+- `circle_revisions.id = circles.published_revision_id`
+- `circle_revisions.circle_id = circles.id`
+- `circle_revisions.status = 'published'`
+
+一覧で受け付けるfilterは`q`、`officialStatus`、`circleType`、`campFrequencyCode`、`memberCountBand`、`activityFrequencyCode`、`weekday`、`timeBand`、`tagId`、`genderBalanceCode`だけとする。同じfilterの反復はOR、異なるfilter間と`q`はANDで結合する。
+
+`q`はtrim後の1つのliteral substringとして、display name、headline、summary、description、大学名、campus名、tag名、活動場所の都道府県・市区町村・施設名・最寄駅・公開noteを検索する。`%`と`_`はwildcardではなくliteralとしてescapeし、空白だけの明示的な`q`は`422 VALIDATION_ERROR`とする。日本語形態素解析、かな正規化、類義語、relevance rankingは行わない。
+
+sortは`newest`だけで、既定値も`newest`とする。正式順序は`circle_revisions.published_at DESC NULLS LAST, circles.id DESC`である。Circle一覧の`page`だけは共通fieldに必須の`totalCount`を加え、cursor適用前の現在時点における公開条件・filter一致総数を返す。snapshot countではない。
+
+cursorはversion、sort、最後の`publishedAt`とCircle ID、正規化filter、発行・失効時刻をcanonical JSONへ格納し、server環境変数`CURSOR_SIGNING_SECRET`の32 bytes以上の固定secretでHMAC-SHA-256署名したbase64url値とする。有効期限は24時間で、形式・base64・JSON・署名・version・filter・sort・必須payload・期限のいずれかが不正なら、理由を外部へ分けず`400 INVALID_CURSOR`を返す。secretをGitやclientへ置かず、processごとにrandom生成しない。
 
 ## 5. Idempotency
 

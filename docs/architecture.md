@@ -2,7 +2,7 @@
 
 - 状態: 正式仕様
 - 初回決定日: 2026-07-25
-- 最終更新日: 2026-09-15
+- 最終更新日: 2026-09-19
 - 対象: ホウクル初期実装
 
 ## 1. 結論
@@ -243,17 +243,17 @@ Expo SDKは同一SDK内の公式互換versionへ揃える。major SDK update、`
 | 項目 | 現在 | 正式化に必要なこと |
 | --- | --- | --- |
 | Expo | static initial screen、両Simulator環境、API URL validation、Lint・型検査・Jest testあり | API接続、正式navigation、auth、各機能、実機確認 |
-| FastAPI | health、circle list、event listのread API、`/api/v1`共通response・error・request ID・OpenAPI基盤、Ruff / pytest baseline | 公開product resource、auth、write、authorization、audit |
-| Local PostgreSQL | Docker Compose PostgreSQL 16とprototype seed。`app_private`正式初回revisionあり | 正式ORM mapping、認証連携後のseed、repository層、各機能migration |
+| FastAPI | unversioned read技術検証、`/api/v1`共通基盤、`app_private`公開Circle一覧・詳細、Ruff / pytest / OpenAPI baseline | mobile接続、auth、write、authorization、audit、他resource |
+| Local PostgreSQL | Docker Compose PostgreSQL 16とprototype seed。`app_private`正式初回revision、公開Circle用ORM・repositoryあり | 他sliceのORM、認証連携後のseed、各機能migration |
 | Supabase | project / dependency未構築 | PostgreSQL、Auth、Storage、environment分離 |
 | Render | project未作成 | build、start、secret、health check、monitoring |
 | EAS | build / submit未設定 | project owner、credentials、build profiles、submit設定 |
 | Stores | account・listing未確認 | organization ownership、契約、metadata、review、release手順 |
-| GitHub Actions | mobile、backend、Next.js technical verificationのCI定義あり | baselineをpushし、GitHub上の初回実行とrequired checkを確認 |
+| GitHub Actions | mobile、Backend PostgreSQL integration、Compose、Next.js technical verificationの4 job定義あり | 各Pull Requestのlatest HEAD確認とrequired checkのruleset設定 |
 | Next.js | FastAPI read API表示の技術検証。offline build対応、既知Critical修正済み | 製品機能を追加せず、保持・archive時期を別途決定 |
 | Vercel | projectなし | 初期製品では使用しない |
 
-2026-09-14に外部projectを必要としないdependency整合、test、CI、環境変数、共同開発基盤を追加し、2026-09-15に画面、API、data、認証運用、非機能要件と初回schemaを正式化した。2026-09-18に`/api/v1`共通基盤を追加したが、正式なproduct resource endpoint、mobile接続、auth、deployは未実装である。
+2026-09-14に外部projectを必要としないdependency整合、test、CI、環境変数、共同開発基盤を追加し、2026-09-15に画面、API、data、認証運用、非機能要件と初回schemaを正式化した。2026-09-18に`/api/v1`共通基盤、2026-09-19に`app_private`公開Circle一覧・詳細を追加した。mobile接続、auth、write、他の正式resource、deployは未実装である。
 
 ## 13. 要確認事項
 

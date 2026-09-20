@@ -2,6 +2,7 @@
 
 最終環境監査日: 2026-09-15
 API共通基盤確認日: 2026-09-18
+公開Circle Read確認日: 2026-09-19
 正式方針反映日: 2026-09-14
 
 この文書は、現在のリポジトリと開発端末を照合したmacOS向けセットアップ手順である。バージョンは監査端末で確認した値であり、プロジェクトがすべてを厳密に固定しているわけではない。
@@ -33,10 +34,10 @@ API共通基盤確認日: 2026-09-18
 | Python | `uv`とuv管理のPython 3.13.14を導入 | 使用可能。ただし `python3` はmacOS標準の3.9.6を指す |
 | コンテナ | Docker DesktopとDocker Composeを導入 | 製品APIとローカルPostgreSQLの開発で使用可能 |
 | Web technical verification | Next.js、React、TypeScript、Tailwind CSSの依存関係を導入 | FastAPIのread API接続確認用。製品経路ではない |
-| 製品API基盤 | FastAPI、Uvicorn、SQLAlchemy、psycopgをDockerイメージへ導入 | 起動、PostgreSQL接続、prototype読み取りAPI、`/api/v1`共通response・error・request ID・OpenAPI基盤を確認済み。正式resource・認証・書込みは未実装 |
-| ローカル製品DB | PostgreSQL 16をDocker Composeで構築 | FastAPI接続とprototype seedを確認済み。正式`app_private`初回Alembic revisionを作成・一時DBで往復検証済み |
+| 製品API基盤 | FastAPI、Uvicorn、SQLAlchemy、psycopgをDockerイメージへ導入 | 起動、PostgreSQL接続、prototype読み取りAPI、`/api/v1`共通基盤、公開Circle一覧・詳細、OpenAPIを確認済み。認証・書込みと他の正式resourceは未実装 |
+| ローカル製品DB | PostgreSQL 16をDocker Composeで構築 | prototype seedと正式`app_private`初回Alembic revisionを確認済み。公開Circle readに必要な正式ORM・repositoryを接続済み |
 | 製品モバイル基盤 | React Native、Expo、Expo Routerを `mobile/` に導入 | 初期画面、Lint、型検査、Jest test、Expo Doctorを確認済み。API・認証・製品機能は未実装 |
-| 自動検査 | GitHub Actions、Jest、React Native Testing Libraryを導入 | local testは確認済み。GitHub上のCIはcommit・push後に初回確認が必要 |
+| 自動検査 | GitHub Actions、Jest、React Native Testing Libraryを導入 | localとPull Requestで確認する4 jobを定義済み。各PRのlatest HEADを確認する |
 | iOS確認環境 | XcodeとiOS Simulatorを導入 | iOS 26.3 Simulatorランタイムを確認済み |
 | Android確認環境 | Android Studio、SDK、Emulator、Pixel 9 AVDを作成 | `Campus_Circle_API_36` を確認済み |
 | UIライブラリ | 環境構築資料にあったChakra UIは導入対象から除外 | 未導入のまま維持 |
@@ -63,7 +64,7 @@ Build / submission: EAS Build / EAS Submit
 Distribution: App Store / Google Play
 ```
 
-現在のExpo画面はFastAPI未接続である。FastAPIには`/api/v1`共通基盤があるが、認証・認可・正式product resource・書込みendpointは未実装である。正式schemaはGit上のmigrationとして確定したが、共有開発DBへの適用とORM接続は未実装であるため、構成採用と製品機能完成を混同しない。
+現在のExpo画面はFastAPI未接続である。FastAPIには`/api/v1`共通基盤と、`app_private`を読む公開Circle一覧・詳細がある。認証・認可・書込みendpoint、他の正式product resource、正式seed、mobile接続は未実装である。正式schemaはGit上のmigrationとして確定し、公開Circle readに必要なORMだけを接続済みであるため、最小read sliceと製品機能完成を混同しない。
 
 ## 前提
 
@@ -260,6 +261,15 @@ postgresql+psycopg://campus:campus_password@db:5432/campus_circle_app
 
 この認証情報はローカル開発専用である。本番環境では使用せず、秘密情報管理方式を別途決定する。
 
+公開Circleのsigned cursorには、32 bytes以上の固定`CURSOR_SIGNING_SECRET`が必要である。値はGitへ保存せず、ローカルではGit管理外の`backend/.env`へ置く。同じ環境では再起動後も同じ値を使用し、process起動ごとに生成し直さない。本番ではRender等のserver-side secretとして注入する。
+
+```dotenv
+# backend/.env（Git管理外）
+CURSOR_SIGNING_SECRET=<32-bytes以上の固定secret>
+```
+
+testとCIは本番値ではない固定test secretを明示的に注入する。secretが未設定または短すぎてもFastAPI自体、health、prototype API、Alembic、OpenAPI生成は利用できるが、正式Circle read APIはfallbackせず、設定が修正されるまでsanitized Problem Detailsで失敗する。
+
 ### Expo製品client
 
 モバイルアプリのAPI URLは、Expo標準の`EXPO_PUBLIC_API_BASE_URL`で設定する。`mobile/.env.example`をGit管理し、端末固有値はGit管理外の`mobile/.env.local`へ置く。
@@ -334,6 +344,7 @@ Androidでは先にAndroid Emulatorを、iOSではiOS Simulatorを利用可能�
 curl http://localhost:8000/health
 curl http://localhost:8000/api/circles
 curl http://localhost:8000/api/events
+curl http://localhost:8000/api/v1/circles
 ```
 
 `/health` の期待値:
@@ -358,6 +369,19 @@ uv pip install --python .venv/bin/python -r requirements-dev.lock
 正式APIのOpenAPI snapshotは`backend/openapi.json`へ置き、`/api/v1`だけを収録して既存technical verification endpointを含めない。正式endpointの変更時は
 `backend/`で`.venv/bin/python generate_openapi.py --output openapi.json`を実行し、
 CIでは`--check`により再生成結果との差分を検出する。生成TypeScript clientは後続workで追加する。
+
+公開CircleのPostgreSQL integrationと性能測定は、database名が`_test`で終わる隔離DBだけで実行する。性能harnessは10,000 Circleを一時投入し、50同時で各scenarioを測定して終了時に削除する。
+
+```bash
+DATABASE_URL=<isolated-test-database-url> \
+CURSOR_SIGNING_SECRET=<fixed-test-secret-at-least-32-bytes> \
+RUN_POSTGRES_INTEGRATION=1 \
+.venv/bin/pytest tests/test_circle_api_postgres.py
+
+DATABASE_URL=<isolated-test-database-url> \
+CURSOR_SIGNING_SECRET=<fixed-test-secret-at-least-32-bytes> \
+.venv/bin/python -m scripts.measure_circle_read_performance --samples 100
+```
 
 Alembic historyには`20260915_0001 (head)`が表示される。PostgreSQL起動後、正式schemaを初めて適用する場合は次を実行する。
 
@@ -434,6 +458,15 @@ npx expo-doctor@latest
 - Backend Ruff、format、pytest 25件、Alembic history、`git diff --check`が成功した。
 - Docker Composeで既存`/health`、`/api/circles`、`/api/events`の疎通を再確認し、永続volumeを削除せず停止した。
 
+2026-09-19の公開Circle Read確認で確認した項目:
+
+- `app_private`専用ORM、repository、service、routerを追加し、prototype metadataと分離した。
+- `GET /api/v1/circles`と`GET /api/v1/circles/{circleId}`について、公開条件、正式response、承認filter、literal検索、newest sort、`totalCount`、keyset、24時間signed cursorをPostgreSQL 16で確認した。
+- 不存在・削除・非公開・停止・published revisionなし・revision不整合・draft・reviewを同じ404として確認した。
+- 隔離した`campus_circle_work2_test`で正式integration 44件が成功し、prototype `/api/circles`と`/api/events`の互換性も確認した。
+- 10,000 Circle、50同時、各100 sampleでp95を測定した。global newest 372.19ms、qなし条件付き288.46ms、qあり726.82ms、複数filter 280.37msで、検索系800ms以下を満たした。
+- `EXPLAIN ANALYZE`の単一query実行時間は最大31.920msだった。既存indexのまま測定条件を満たし、migration・index・extension追加は行っていない。
+
 既存の `mobile/README.md` には、iOS SimulatorとAndroid Emulatorで初期画面を表示確認済みと記録されている。2026-07-25の文書監査では両Simulatorの画面表示を再実行していないため、将来のUI変更時には再確認する。
 
 ## 未実施・未整備
@@ -441,19 +474,19 @@ npx expo-doctor@latest
 正式モバイル構成について未実施のもの:
 
 - ExpoからFastAPIへのversioned HTTPS JSON通信
-- FastAPIのSupabase Auth JWT検証、circle単位認可、正式`/api/v1` product resource endpointとwrite API
-- 正式schema用のSQLAlchemy mapping、repository、正式seed、OpenAPI generated client
+- FastAPIのSupabase Auth JWT検証、circle単位認可、正式`/api/v1` write APIと公開Circle以外のproduct resource
+- 公開Circle以外の正式SQLAlchemy mapping / repository、正式seed、OpenAPI generated client
 - Supabase clientと必要なdependencyの導入
 - Supabase development / staging / production projectの作成
 - Supabase Auth、PostgreSQL、Storage、policyの接続
 - 一般Google OAuth、email/password、iOS版Sign in with Apple
 - Google Cloud OAuth consent screen、mobile Client ID、redirect / deep link設定
 - Sign in with AppleのApple Developer / Supabase / Expo実値設定と審査確認
-- home recommendation、formal search、favorite、my page、circle management、report等の製品機能
+- home recommendation、mobileのformal search UI、favorite、my page、circle management、report等の製品機能
 - Render service、environment variable、health check、staging / production deploy
 - EAS project、build profile、署名、App Store / Google Play submission
 - iOS 16.4以上・Android 10以上のSimulator / Emulatorと実機release test記録
-- GitHubへpush後の初回CI実行、monitoring、backup / restore、incident response
+- production monitoring、backup / restore、incident response
 - Privacy Policy、terms、support URL、account deletion、store privacy申告
 
 Next.js technical verificationについて未実施・非対象のもの:
@@ -470,5 +503,5 @@ Next.js technical verificationについて未実施・非対象のもの:
 - `mobile/` の `npm audit` は2026-09-14時点で18件（moderate 14件、high 4件）を報告する。Expo / Metro等の推移依存であり、`npm audit fix --force`はExpo Router / Splash Screenを非互換versionへ変更するため適用しない。DependabotとExpo SDK patchを追跡し、release前に再監査する。
 - `~/.zprofile` には `brew shellenv` が重複して記載されている。動作への影響は確認されていないが、将来整理できる。
 - Android Emulatorは通常のサンドボックス内コマンドではCPU機能エラーになる場合がある。macOS上で通常起動すると動作する。
-- mobile製品clientはAPI未接続である。正式契約と`/api/v1`共通基盤は存在するが、current circle / event read APIはunversioned technical verificationのままである。新規product resourceは`/api/v1`へ実装する。
+- mobile製品clientはAPI未接続である。unversioned circle / event read APIはtechnical verificationとして残し、正式な公開Circle readだけを`/api/v1`と`app_private`へ実装済みである。今後のproduct resourceも`/api/v1`へ追加する。
 - Docker Desktop、Simulator、Expo開発サーバーはメモリを使用するため、不要なものは停止する。

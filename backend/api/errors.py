@@ -259,7 +259,11 @@ async def unexpected_error_handler(request: Request, error: Exception) -> Respon
     )
 
 
-def openapi_problem_response(description: str) -> dict[str, Any]:
+def openapi_problem_response(
+    description: str,
+    *,
+    example: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     schema = ProblemDetails.model_json_schema(mode="serialization")
     definitions = schema.pop("$defs", {})
 
@@ -278,12 +282,16 @@ def openapi_problem_response(description: str) -> dict[str, Any]:
 
         return {key: inline_local_definitions(item) for key, item in value.items()}
 
+    media_type_content: dict[str, Any] = {
+        "schema": inline_local_definitions(schema),
+    }
+    if example is not None:
+        media_type_content["example"] = dict(example)
+
     return {
         "description": description,
         "content": {
-            PROBLEM_MEDIA_TYPE: {
-                "schema": inline_local_definitions(schema),
-            }
+            PROBLEM_MEDIA_TYPE: media_type_content,
         },
     }
 
