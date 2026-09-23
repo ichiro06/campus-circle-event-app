@@ -366,9 +366,15 @@ uv pip install --python .venv/bin/python -r requirements-dev.lock
 .venv/bin/alembic history
 ```
 
-正式APIのOpenAPI snapshotは`backend/openapi.json`へ置き、`/api/v1`だけを収録して既存technical verification endpointを含めない。正式endpointの変更時は
-`backend/`で`.venv/bin/python generate_openapi.py --output openapi.json`を実行し、
-CIでは`--check`により再生成結果との差分を検出する。生成TypeScript clientは後続workで追加する。
+正式APIのOpenAPI snapshotは`backend/openapi.json`へ置き、`/api/v1`だけを収録して既存technical verification endpointを含めない。正式endpointの変更時は`backend/`で`.venv/bin/python generate_openapi.py --output openapi.json`を実行し、Mobile型を次の順で更新する。
+
+```bash
+cd ../mobile
+npm run api:generate
+npm run api:check
+```
+
+生成先の`mobile/src/api/generated/openapi.ts`はGit管理し、直接編集しない。CIはBackend側でsnapshotとruntime/formal schemaのdriftを確認したうえで、Mobile側の`api:check`によりcommit済み生成型のstaleを検出する。
 
 公開CircleのPostgreSQL integrationと性能測定は、database名が`_test`で終わる隔離DBだけで実行する。性能harnessは10,000 Circleを一時投入し、50同時で各scenarioを測定して終了時に削除する。
 
@@ -404,11 +410,12 @@ Google Fontsのbuild時取得は除去済みであり、技術検証のbuildは�
 
 ```bash
 cd mobile
+npm run api:check
 npm run check
 npx expo-doctor@latest
 ```
 
-`npm run check`はLint、TypeScript型検査、Jest testを順に実行する。
+`npm run api:check`は`backend/openapi.json`から型を再生成し、その生成fileだけの差分を確認する。`npm run check`はLint、TypeScript型検査、Jest testを順に実行する。
 
 ## 確認済み
 
@@ -467,15 +474,23 @@ npx expo-doctor@latest
 - 10,000 Circle、50同時、各100 sampleでp95を測定した。global newest 372.19ms、qなし条件付き288.46ms、qあり726.82ms、複数filter 280.37msで、検索系800ms以下を満たした。
 - `EXPLAIN ANALYZE`の単一query実行時間は最大31.920msだった。既存indexのまま測定条件を満たし、migration・index・extension追加は行っていない。
 
+2026-09-24のMobile共通基盤確認で確認した項目:
+
+- Node.js 24、npm 11、TypeScript 6環境で`openapi-typescript` 6.7.6による`backend/openapi.json`の型生成とcompileが成功した。7.13.0はTypeScript 5だけをpeer rangeとするため採用していない。
+- `npm run api:check`、Mobile Lint、TypeScript型検査、9 test suites / 61 tests、`git diff --check`が成功した。
+- Expo introspectionでAndroid `minSdkVersion = 29`、React Native 0.86.3のversion catalogで`targetSdkVersion = 36`、Expo SDK 57のpodspecでiOS deployment target `16.4`を確認した。`android/`と`ios/`は生成していない。
+- Expo Doctorは20 / 21 checksが成功し、今回変更していない既存4 packageに新しいSDK 57 patch推奨値との差が報告された。Work 3へ無関係なdependency更新は混在させていない。
+- `npm audit --omit=dev`は既存と同じ18件（moderate 14、high 4、critical 0）、全dependencyは20件（moderate 15、high 5、critical 0）だった。増分はgeneratorのdev-only `undici`経路で、Mobile runtimeへ新しいHigh / Criticalは導入していない。
+
 既存の `mobile/README.md` には、iOS SimulatorとAndroid Emulatorで初期画面を表示確認済みと記録されている。2026-07-25の文書監査では両Simulatorの画面表示を再実行していないため、将来のUI変更時には再確認する。
 
 ## 未実施・未整備
 
 正式モバイル構成について未実施のもの:
 
-- ExpoからFastAPIへのversioned HTTPS JSON通信
+- Expo画面からFastAPIへのversioned JSON通信（OpenAPI生成型、transport、公開Circle typed facadeまでは実装済み）
 - FastAPIのSupabase Auth JWT検証、circle単位認可、正式`/api/v1` write APIと公開Circle以外のproduct resource
-- 公開Circle以外の正式SQLAlchemy mapping / repository、正式seed、OpenAPI generated client
+- 公開Circle以外の正式SQLAlchemy mapping / repository、正式seed
 - Supabase clientと必要なdependencyの導入
 - Supabase development / staging / production projectの作成
 - Supabase Auth、PostgreSQL、Storage、policyの接続
@@ -500,8 +515,9 @@ Next.js technical verificationについて未実施・非対象のもの:
 - PostgreSQLのprototype tableだけはFastAPI起動時の`Base.metadata.create_all()`で作る。正式業務tableは`app_private`のAlembic revisionで管理し、prototypeへ正式機能を追加しない。
 - seedデータは対象テーブルが空の場合だけ追加され、Docker volumeに永続化される。
 - DockerとCIは生成済みlockを使用する。入力用requirementsとlockの更新漏れをPull Requestで確認する。
-- `mobile/` の `npm audit` は2026-09-14時点で18件（moderate 14件、high 4件）を報告する。Expo / Metro等の推移依存であり、`npm audit fix --force`はExpo Router / Splash Screenを非互換versionへ変更するため適用しない。DependabotとExpo SDK patchを追跡し、release前に再監査する。
+- `mobile/` のruntime dependency監査は2026-09-24時点で18件（moderate 14件、high 4件）で、2026-09-14の既知debtから増えていない。全dependencyでは20件（moderate 15件、high 5件）となり、追加1件のHighは`openapi-typescript`のdev-only推移依存`undici`である。生成時だけの開発経路として追跡し、`npm audit fix --force`はExpo互換性を壊すため適用しない。Dependabot、generator更新可否、Expo SDK patchを追跡し、release前に再監査する。
+- Expo Doctorは2026-09-24時点で、`@expo/ui`、`expo`、`expo-constants`、`expo-router`のSDK 57 patch推奨versionとの差だけを報告する。4 packageの宣言versionはWork 3開始時の`main`と同じであり、generator・build-properties追加による不整合ではない。別workで公式互換patchへ更新して両Simulatorを再確認する。
 - `~/.zprofile` には `brew shellenv` が重複して記載されている。動作への影響は確認されていないが、将来整理できる。
 - Android Emulatorは通常のサンドボックス内コマンドではCPU機能エラーになる場合がある。macOS上で通常起動すると動作する。
-- mobile製品clientはAPI未接続である。unversioned circle / event read APIはtechnical verificationとして残し、正式な公開Circle readだけを`/api/v1`と`app_private`へ実装済みである。今後のproduct resourceも`/api/v1`へ追加する。
+- mobile製品clientにはOpenAPI生成型と共通transport、公開Circle typed facadeがあるが、画面からのAPI呼出しは未接続である。unversioned circle / event read APIはtechnical verificationとして残し、正式な公開Circle readだけを`/api/v1`と`app_private`へ実装済みである。今後のproduct resourceも`/api/v1`へ追加する。
 - Docker Desktop、Simulator、Expo開発サーバーはメモリを使用するため、不要なものは停止する。

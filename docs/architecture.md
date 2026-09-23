@@ -196,7 +196,7 @@ PostgreSQL
 
 | 環境 | Mobile | API | DB / Auth / Storage | 状態 |
 | --- | --- | --- | --- | --- |
-| local | Expo development server、iOS Simulator、Android Emulator。API URLは`EXPO_PUBLIC_API_BASE_URL` | Docker Compose FastAPI | Docker Compose PostgreSQL 16。Auth / Storage local構成は要決定 | Expo初期画面、環境変数validation、testとAPI・DBを個別確認済み。Expo→APIは未接続 |
+| local | Expo development server、iOS Simulator、Android Emulator。API URLは`EXPO_PUBLIC_API_BASE_URL` | Docker Compose FastAPI | Docker Compose PostgreSQL 16。Auth / Storage local構成は要決定 | 4タブ・詳細shell、OpenAPI生成型とtransportを確認済み。画面→APIは未接続 |
 | preview / staging | EAS development / preview build候補 | productionと分離したRender service候補 | productionと分離したSupabase project候補 | 未構築 |
 | production | App Store / Google Play配布build | Render Web Service | production Supabase project | 未構築 |
 
@@ -216,10 +216,11 @@ PostgreSQL
 - App Review用のdemo accountまたはreview手順を用意し、審査中もbackendを稼働させる。
 - アカウント作成を提供するため、アプリ内account削除をrelease gateとする。
 - Privacy Policy、Support URL、ストアmetadata、Data Safety / App Privacy回答をrelease前に整備する。
+- Expo SDK 57のbuild baselineはAndroid `minSdkVersion = 29`、`targetSdkVersion = 36`、iOS deployment target `16.4`とする。Android minimumは`expo-build-properties`で明示し、同じ値のSDK既定設定は重複させない。
 
 ## 11. 実装品質・セキュリティ方針
 
-実装品質の最低基準として、GitHub ActionsでmobileのLint・型検査・Jest test、FastAPIのRuff・pytest・Alembic設定確認、FastAPI / PostgreSQLのbuild・health・read endpoint、Next.js technical verificationのLint・buildを実行する。Dependabotは月次とし、互換性を確認せず自動mergeしない。
+実装品質の最低基準として、GitHub ActionsでmobileのOpenAPI生成型stale check・Lint・型検査・Jest test、FastAPIのRuff・pytest・Alembic設定確認、FastAPI / PostgreSQLのbuild・health・read endpoint、Next.js technical verificationのLint・buildを実行する。Dependabotは月次とし、互換性を確認せず自動mergeしない。
 
 Python依存はversion範囲を`requirements.txt` / `requirements-dev.txt`へ記述し、uvで生成した`requirements.lock` / `requirements-dev.lock`をDockerとCIへ使用する。実行時は従来どおりpipを使い、依存管理方式を全面変更しない。入力を変更したPull Requestでは対応するlockも再生成する。
 
@@ -242,7 +243,7 @@ Expo SDKは同一SDK内の公式互換versionへ揃える。major SDK update、`
 
 | 項目 | 現在 | 正式化に必要なこと |
 | --- | --- | --- |
-| Expo | static initial screen、両Simulator環境、API URL validation、Lint・型検査・Jest testあり | API接続、正式navigation、auth、各機能、実機確認 |
+| Expo | 4タブ・Circle詳細shell、共通状態、API URL validation、OpenAPI生成型、native fetch transport、公開Circle typed facade、Lint・型検査・Jest testあり | 画面からのAPI接続、auth、各機能、更新後の両Simulator・実機確認 |
 | FastAPI | unversioned read技術検証、`/api/v1`共通基盤、`app_private`公開Circle一覧・詳細、Ruff / pytest / OpenAPI baseline | mobile接続、auth、write、authorization、audit、他resource |
 | Local PostgreSQL | Docker Compose PostgreSQL 16とprototype seed。`app_private`正式初回revision、公開Circle用ORM・repositoryあり | 他sliceのORM、認証連携後のseed、各機能migration |
 | Supabase | project / dependency未構築 | PostgreSQL、Auth、Storage、environment分離 |
@@ -253,7 +254,7 @@ Expo SDKは同一SDK内の公式互換versionへ揃える。major SDK update、`
 | Next.js | FastAPI read API表示の技術検証。offline build対応、既知Critical修正済み | 製品機能を追加せず、保持・archive時期を別途決定 |
 | Vercel | projectなし | 初期製品では使用しない |
 
-2026-09-14に外部projectを必要としないdependency整合、test、CI、環境変数、共同開発基盤を追加し、2026-09-15に画面、API、data、認証運用、非機能要件と初回schemaを正式化した。2026-09-18に`/api/v1`共通基盤、2026-09-19に`app_private`公開Circle一覧・詳細を追加した。mobile接続、auth、write、他の正式resource、deployは未実装である。
+2026-09-14に外部projectを必要としないdependency整合、test、CI、環境変数、共同開発基盤を追加し、2026-09-15に画面、API、data、認証運用、非機能要件と初回schemaを正式化した。2026-09-18に`/api/v1`共通基盤、2026-09-19に`app_private`公開Circle一覧・詳細、2026-09-24にMobileのnavigation shell・共通状態・型付きAPI基盤を追加した。画面からのAPI接続、auth、write、他の正式resource、deployは未実装である。
 
 ## 13. 要確認事項
 
