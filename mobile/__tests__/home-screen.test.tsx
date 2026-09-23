@@ -1,14 +1,12 @@
 import { render } from "@testing-library/react-native";
 
-import HomeScreen from "../src/app/index";
+import HomeScreen from "../src/app/(tabs)/index";
 
 describe("HomeScreen", () => {
   it("identifies the mobile product", async () => {
     const { getByText } = await render(<HomeScreen />);
 
     expect(getByText("サークルを見つけよう")).toBeTruthy();
-    expect(
-      getByText("iOS・Androidアプリの開発環境が整いました。"),
-    ).toBeTruthy();
+    expect(getByText("公開サークルを見つけるホーム画面です。")).toBeTruthy();
   });
 });
