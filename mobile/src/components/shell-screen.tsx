@@ -1,12 +1,24 @@
 import { StyleSheet, Text, View } from "react-native";
 
-export default function Index() {
+export interface ShellScreenProps {
+  description: string;
+  eyebrow?: string;
+  title: string;
+}
+
+export function ShellScreen({
+  description,
+  eyebrow = "CAMPUS CIRCLE",
+  title,
+}: ShellScreenProps) {
   return (
     <View style={styles.container}>
       <View style={styles.mark} accessibilityElementsHidden />
-      <Text style={styles.eyebrow}>CAMPUS CIRCLE</Text>
-      <Text style={styles.title}>サークルを見つけよう</Text>
-      <Text style={styles.description}>iOS・Androidアプリの開発環境が整いました。</Text>
+      <Text style={styles.eyebrow}>{eyebrow}</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        {title}
+      </Text>
+      <Text style={styles.description}>{description}</Text>
     </View>
   );
 }
