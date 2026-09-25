@@ -61,8 +61,14 @@ function buildHeaders(
   };
 
   for (const [name, value] of Object.entries(customHeaders ?? {})) {
-    if (name.toLowerCase() === "authorization") {
+    const normalizedName = name.toLowerCase();
+
+    if (normalizedName === "authorization") {
       throw new Error("Authorization is managed by the API transport");
+    }
+
+    if (normalizedName === "accept") {
+      throw new Error("Accept is managed by the API transport");
     }
 
     headers[name] = value;
@@ -84,6 +90,16 @@ function buildUrl(baseUrl: string, options: ApiRequestOptions): string {
   return `${baseUrl}${options.path}${queryString ? `?${queryString}` : ""}`;
 }
 
+async function resolveAccessToken(
+  accessTokenProvider: AccessTokenProvider,
+): Promise<string | null> {
+  try {
+    return await accessTokenProvider();
+  } catch (cause) {
+    throw new ApiClientError({ kind: "network", cause });
+  }
+}
+
 export function createApiTransport({
   accessTokenProvider,
   baseUrl,
@@ -102,8 +118,18 @@ export function createApiTransport({
     async request<ResponseBody>(
       options: ApiRequestOptions,
     ): Promise<ResponseBody> {
+      if (options.signal?.aborted) {
+        throw getAbortError("cancelled", timeoutMs);
+      }
+
       const controller = new AbortController();
       let abortSource: AbortSource | undefined;
+      let rejectForAbort: (error: ApiClientError) => void = () => {};
+      const abortPromise = new Promise<never>((_resolve, reject) => {
+        rejectForAbort = reject;
+      });
+      const raceWithAbort = <Value>(promise: Promise<Value>) =>
+        Promise.race([promise, abortPromise]);
 
       const abort = (source: AbortSource) => {
         if (abortSource) {
@@ -111,14 +137,11 @@ export function createApiTransport({
         }
 
         abortSource = source;
+        rejectForAbort(getAbortError(source, timeoutMs));
         controller.abort();
       };
 
       const handleCallerAbort = () => abort("cancelled");
-
-      if (options.signal?.aborted) {
-        throw getAbortError("cancelled", timeoutMs);
-      }
 
       options.signal?.addEventListener("abort", handleCallerAbort, {
         once: true,
@@ -128,7 +151,7 @@ export function createApiTransport({
 
       try {
         const accessToken = accessTokenProvider
-          ? await accessTokenProvider()
+          ? await raceWithAbort(resolveAccessToken(accessTokenProvider))
           : null;
 
         if (abortSource) {
@@ -141,11 +164,13 @@ export function createApiTransport({
         let response: Response;
 
         try {
-          response = await fetchImpl(url, {
-            headers,
-            method: options.method,
-            signal: controller.signal,
-          });
+          response = await raceWithAbort(
+            fetchImpl(url, {
+              headers,
+              method: options.method,
+              signal: controller.signal,
+            }),
+          );
         } catch (cause) {
           if (abortSource) {
             throw getAbortError(abortSource, timeoutMs);
@@ -167,7 +192,7 @@ export function createApiTransport({
         let body: unknown;
 
         try {
-          body = await response.json();
+          body = await raceWithAbort(response.json());
         } catch {
           if (abortSource) {
             throw getAbortError(abortSource, timeoutMs);

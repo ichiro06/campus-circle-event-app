@@ -21,6 +21,28 @@ interface MockResponseOptions {
   status?: number;
 }
 
+interface Deferred<Value> {
+  promise: Promise<Value>;
+  reject: (reason?: unknown) => void;
+  resolve: (value: Value) => void;
+}
+
+function createDeferred<Value>(): Deferred<Value> {
+  let reject: Deferred<Value>["reject"] = () => {};
+  let resolve: Deferred<Value>["resolve"] = () => {};
+  const promise = new Promise<Value>((resolvePromise, rejectPromise) => {
+    reject = rejectPromise;
+    resolve = resolvePromise;
+  });
+
+  return { promise, reject, resolve };
+}
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 function mockResponse(
   body: unknown,
   {
@@ -190,17 +212,44 @@ describe("createApiTransport", () => {
     );
   });
 
-  it("distinguishes the project timeout and clears the timer", async () => {
+  it("cancels a pre-aborted caller without starting provider, fetch, timer, or listener", async () => {
     jest.useFakeTimers();
-    let requestSignal: AbortSignal | undefined;
-    const fetchMock = jest.fn(
-      (_input: Parameters<FetchImplementation>[0], init?: RequestInit) =>
-        new Promise<Response>((_resolve, reject) => {
-          requestSignal = init?.signal ?? undefined;
-          requestSignal?.addEventListener("abort", () => reject(new Error("aborted")));
-        }),
-    ) as jest.MockedFunction<FetchImplementation>;
+    const callerController = new AbortController();
+    const addEventListener = jest.spyOn(
+      callerController.signal,
+      "addEventListener",
+    );
+    const accessTokenProvider = jest.fn(async () => "test-token");
+    const fetchMock = createFetchMock(mockResponse({ data: [] }));
+    callerController.abort();
     const transport = createApiTransport({
+      accessTokenProvider,
+      baseUrl: "https://api.example.com",
+      fetchImpl: fetchMock,
+    });
+
+    await expectApiFailure(
+      transport.request({
+        method: "GET",
+        path: "/api/v1/circles",
+        signal: callerController.signal,
+      }),
+      "cancelled",
+    );
+
+    expect(accessTokenProvider).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(addEventListener).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it("settles as timeout while the token provider remains pending", async () => {
+    jest.useFakeTimers();
+    const providerDeferred = createDeferred<string | null>();
+    const accessTokenProvider = jest.fn(() => providerDeferred.promise);
+    const fetchMock = createFetchMock(mockResponse({ data: [] }));
+    const transport = createApiTransport({
+      accessTokenProvider,
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
     });
@@ -208,22 +257,168 @@ describe("createApiTransport", () => {
       method: "GET",
       path: "/api/v1/circles",
     });
+    const settlement = jest.fn();
+    void request.then(settlement, settlement);
+    const expectation = expectApiFailure(request, "timeout");
+
+    expect(accessTokenProvider).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(DEFAULT_API_TIMEOUT_MS);
+    await expectation;
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+
+    providerDeferred.reject(new Error("late provider failure"));
+    await flushMicrotasks();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(settlement).toHaveBeenCalledTimes(1);
+  });
+
+  it("settles as cancelled while the token provider remains pending", async () => {
+    jest.useFakeTimers();
+    const providerDeferred = createDeferred<string | null>();
+    const callerController = new AbortController();
+    const addEventListener = jest.spyOn(
+      callerController.signal,
+      "addEventListener",
+    );
+    const removeEventListener = jest.spyOn(
+      callerController.signal,
+      "removeEventListener",
+    );
+    const fetchMock = createFetchMock(mockResponse({ data: [] }));
+    const transport = createApiTransport({
+      accessTokenProvider: () => providerDeferred.promise,
+      baseUrl: "https://api.example.com",
+      fetchImpl: fetchMock,
+    });
+    const request = transport.request({
+      method: "GET",
+      path: "/api/v1/circles",
+      signal: callerController.signal,
+    });
+    const settlement = jest.fn();
+    void request.then(settlement, settlement);
+    const expectation = expectApiFailure(request, "cancelled");
+
+    callerController.abort();
+    await expectation;
+
+    const abortListener = addEventListener.mock.calls.find(
+      ([eventName]) => eventName === "abort",
+    )?.[1];
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(abortListener).toEqual(expect.any(Function));
+    expect(removeEventListener).toHaveBeenCalledWith("abort", abortListener);
+    expect(jest.getTimerCount()).toBe(0);
+
+    providerDeferred.resolve("late-token");
+    await flushMicrotasks();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(settlement).toHaveBeenCalledTimes(1);
+  });
+
+  it("classifies token provider rejection as network without exposing its message", async () => {
+    jest.useFakeTimers();
+    const providerError = new Error("provider internal failure details");
+    const fetchMock = createFetchMock(mockResponse({ data: [] }));
+    const transport = createApiTransport({
+      accessTokenProvider: async () => {
+        throw providerError;
+      },
+      baseUrl: "https://api.example.com",
+      fetchImpl: fetchMock,
+    });
+
+    const error = await transport
+      .request({ method: "GET", path: "/api/v1/circles" })
+      .catch((cause: unknown) => cause);
+
+    expect(error).toBeInstanceOf(ApiClientError);
+    expect(error).toMatchObject({
+      failure: { cause: providerError, kind: "network" },
+      message: "Network request failed",
+    });
+    expect((error as Error).message).not.toContain(providerError.message);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it("continues without Authorization when the token provider resolves null", async () => {
+    const fetchMock = createFetchMock(mockResponse({ data: [] }));
+    const transport = createApiTransport({
+      accessTokenProvider: async () => null,
+      baseUrl: "https://api.example.com",
+      fetchImpl: fetchMock,
+    });
+
+    await transport.request({ method: "GET", path: "/api/v1/circles" });
+
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).not.toHaveProperty(
+      "Authorization",
+    );
+  });
+
+  it("starts fetch when the token provider resolves before timeout", async () => {
+    jest.useFakeTimers();
+    const providerDeferred = createDeferred<string | null>();
+    const fetchMock = createFetchMock(mockResponse({ data: [] }));
+    const transport = createApiTransport({
+      accessTokenProvider: () => providerDeferred.promise,
+      baseUrl: "https://api.example.com",
+      fetchImpl: fetchMock,
+    });
+    const request = transport.request({
+      method: "GET",
+      path: "/api/v1/circles",
+    });
+
+    providerDeferred.resolve("test-token");
+    await expect(request).resolves.toEqual({ data: [] });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: "Bearer test-token",
+    });
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it("keeps timeout when caller cancellation happens later", async () => {
+    jest.useFakeTimers();
+    const providerDeferred = createDeferred<string | null>();
+    const callerController = new AbortController();
+    const fetchMock = createFetchMock(mockResponse({ data: [] }));
+    const transport = createApiTransport({
+      accessTokenProvider: () => providerDeferred.promise,
+      baseUrl: "https://api.example.com",
+      fetchImpl: fetchMock,
+    });
+    const request = transport.request({
+      method: "GET",
+      path: "/api/v1/circles",
+      signal: callerController.signal,
+    });
+    const settlement = jest.fn();
+    void request.then(settlement, settlement);
     const expectation = expectApiFailure(request, "timeout");
 
     await jest.advanceTimersByTimeAsync(DEFAULT_API_TIMEOUT_MS);
     await expectation;
-    expect(requestSignal?.aborted).toBe(true);
+    callerController.abort();
+    providerDeferred.resolve("late-token");
+    await flushMicrotasks();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(settlement).toHaveBeenCalledTimes(1);
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it("distinguishes caller cancellation from timeout", async () => {
+  it("keeps caller cancellation when timeout would happen later", async () => {
     jest.useFakeTimers();
     const callerController = new AbortController();
+    const fetchDeferred = createDeferred<Response>();
     const fetchMock = jest.fn(
-      (_input: Parameters<FetchImplementation>[0], init?: RequestInit) =>
-        new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
-        }),
+      (_input: Parameters<FetchImplementation>[0], _init?: RequestInit) =>
+        fetchDeferred.promise,
     ) as jest.MockedFunction<FetchImplementation>;
     const transport = createApiTransport({
       baseUrl: "https://api.example.com",
@@ -234,32 +429,77 @@ describe("createApiTransport", () => {
       path: "/api/v1/circles",
       signal: callerController.signal,
     });
+    const settlement = jest.fn();
+    void request.then(settlement, settlement);
     const expectation = expectApiFailure(request, "cancelled");
 
     callerController.abort();
     await expectation;
+    await jest.advanceTimersByTimeAsync(DEFAULT_API_TIMEOUT_MS);
+    fetchDeferred.reject(new Error("late fetch failure"));
+    await flushMicrotasks();
+
+    expect(settlement).toHaveBeenCalledTimes(1);
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it("cleans up the timer after a successful request", async () => {
+  it("returns a fetch response that completes before timeout", async () => {
     jest.useFakeTimers();
+    const fetchDeferred = createDeferred<Response>();
     let requestSignal: AbortSignal | undefined;
     const fetchMock = jest.fn(
-      async (_input: Parameters<FetchImplementation>[0], init?: RequestInit) => {
+      (_input: Parameters<FetchImplementation>[0], init?: RequestInit) => {
         requestSignal = init?.signal ?? undefined;
-        return mockResponse({ data: [] });
+        return fetchDeferred.promise;
       },
     ) as jest.MockedFunction<FetchImplementation>;
     const transport = createApiTransport({
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
     });
+    const request = transport.request({
+      method: "GET",
+      path: "/api/v1/circles",
+    });
 
-    await transport.request({ method: "GET", path: "/api/v1/circles" });
+    fetchDeferred.resolve(mockResponse({ data: "fetch-first" }));
+    await expect(request).resolves.toEqual({ data: "fetch-first" });
     await jest.advanceTimersByTimeAsync(DEFAULT_API_TIMEOUT_MS);
 
     expect(requestSignal?.aborted).toBe(false);
     expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it("settles as timeout before a pending fetch completes", async () => {
+    jest.useFakeTimers();
+    const fetchDeferred = createDeferred<Response>();
+    let requestSignal: AbortSignal | undefined;
+    const fetchMock = jest.fn(
+      (_input: Parameters<FetchImplementation>[0], init?: RequestInit) => {
+        requestSignal = init?.signal ?? undefined;
+        return fetchDeferred.promise;
+      },
+    ) as jest.MockedFunction<FetchImplementation>;
+    const transport = createApiTransport({
+      baseUrl: "https://api.example.com",
+      fetchImpl: fetchMock,
+    });
+    const request = transport.request({
+      method: "GET",
+      path: "/api/v1/circles",
+    });
+    const settlement = jest.fn();
+    void request.then(settlement, settlement);
+    const expectation = expectApiFailure(request, "timeout");
+
+    await jest.advanceTimersByTimeAsync(DEFAULT_API_TIMEOUT_MS);
+    await expectation;
+    expect(requestSignal?.aborted).toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
+
+    fetchDeferred.resolve(mockResponse({ data: "late" }));
+    await flushMicrotasks();
+    expect(settlement).toHaveBeenCalledTimes(1);
   });
 
   it("removes the caller abort listener after completion", async () => {
@@ -304,6 +544,7 @@ describe("createApiTransport", () => {
     });
 
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Accept: "application/json, application/problem+json",
       "X-Client-Version": "1.0.0",
     });
     expect(fetchMock.mock.calls[0]?.[1]?.headers).not.toHaveProperty(
@@ -326,20 +567,43 @@ describe("createApiTransport", () => {
     });
   });
 
-  it("rejects a caller-supplied Authorization header", async () => {
-    const fetchMock = createFetchMock(mockResponse({ data: [] }));
-    const transport = createApiTransport({
-      baseUrl: "https://api.example.com",
-      fetchImpl: fetchMock,
-    });
+  it.each(["Authorization", "authorization", "AUTHORIZATION", "AuThOrIzAtIoN"])(
+    "rejects a caller-supplied %s header",
+    async (headerName) => {
+      const fetchMock = createFetchMock(mockResponse({ data: [] }));
+      const transport = createApiTransport({
+        baseUrl: "https://api.example.com",
+        fetchImpl: fetchMock,
+      });
 
-    await expect(
-      transport.request({
-        headers: { authorization: "Bearer caller-token" },
-        method: "GET",
-        path: "/api/v1/circles",
-      }),
-    ).rejects.toThrow("Authorization is managed by the API transport");
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      await expect(
+        transport.request({
+          headers: { [headerName]: "Bearer caller-token" },
+          method: "GET",
+          path: "/api/v1/circles",
+        }),
+      ).rejects.toThrow("Authorization is managed by the API transport");
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["Accept", "accept", "ACCEPT", "AcCePt"])(
+    "rejects a caller-supplied %s header",
+    async (headerName) => {
+      const fetchMock = createFetchMock(mockResponse({ data: [] }));
+      const transport = createApiTransport({
+        baseUrl: "https://api.example.com",
+        fetchImpl: fetchMock,
+      });
+
+      await expect(
+        transport.request({
+          headers: { [headerName]: "text/plain" },
+          method: "GET",
+          path: "/api/v1/circles",
+        }),
+      ).rejects.toThrow("Accept is managed by the API transport");
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 });

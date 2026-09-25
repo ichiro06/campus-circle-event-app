@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, within } from "@testing-library/react-native";
 
 import {
   EmptyState,
@@ -26,7 +26,13 @@ describe("common state presentation", () => {
       />,
     );
 
-    fireEvent.press(screen.getByRole("button", { name: "条件を解除" }));
+    const description = screen.getByLabelText(
+      "検索結果は0件です。条件に合うサークルがありません。",
+    );
+    const action = screen.getByRole("button", { name: "条件を解除" });
+
+    expect(within(description).queryByRole("button")).toBeNull();
+    fireEvent.press(action);
     expect(onAction).toHaveBeenCalledTimes(1);
   });
 
@@ -45,7 +51,13 @@ describe("common state presentation", () => {
         "問い合わせID: 00000000-0000-0000-0000-000000000000",
       ),
     ).toBeTruthy();
-    fireEvent.press(screen.getByRole("button", { name: "再試行" }));
+    const description = screen.getByLabelText(
+      "読み込めませんでした。通信状態を確認してください。",
+    );
+    const retry = screen.getByRole("button", { name: "再試行" });
+
+    expect(within(description).queryByRole("button")).toBeNull();
+    fireEvent.press(retry);
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 

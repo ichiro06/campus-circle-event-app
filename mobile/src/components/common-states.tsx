@@ -8,6 +8,7 @@ import {
 
 interface StateFrameProps {
   accessibilityLabel: string;
+  action?: React.ReactNode;
   children?: React.ReactNode;
   description?: string;
   role?: "alert" | "progressbar";
@@ -16,23 +17,27 @@ interface StateFrameProps {
 
 function StateFrame({
   accessibilityLabel,
+  action,
   children,
   description,
   role,
   title,
 }: StateFrameProps) {
   return (
-    <View
-      accessible
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole={role}
-      style={styles.container}
-    >
-      <Text accessibilityRole="header" style={styles.title}>
-        {title}
-      </Text>
-      {description ? <Text style={styles.description}>{description}</Text> : null}
-      {children}
+    <View style={styles.container}>
+      <View
+        accessible
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole={role}
+        style={styles.content}
+      >
+        <Text accessibilityRole="header" style={styles.title}>
+          {title}
+        </Text>
+        {description ? <Text style={styles.description}>{description}</Text> : null}
+        {children}
+      </View>
+      {action}
     </View>
   );
 }
@@ -73,13 +78,14 @@ export function EmptyState({
   return (
     <StateFrame
       accessibilityLabel={`${title}。${description}`}
+      action={
+        actionLabel && onAction ? (
+          <StateAction label={actionLabel} onPress={onAction} />
+        ) : null
+      }
       description={description}
       title={title}
-    >
-      {actionLabel && onAction ? (
-        <StateAction label={actionLabel} onPress={onAction} />
-      ) : null}
-    </StateFrame>
+    />
   );
 }
 
@@ -105,6 +111,9 @@ export function ErrorState({
   return (
     <StateFrame
       accessibilityLabel={`${title}。${description}`}
+      action={
+        onRetry ? <StateAction label={retryLabel} onPress={onRetry} /> : null
+      }
       description={description}
       role="alert"
       title={title}
@@ -114,7 +123,6 @@ export function ErrorState({
           {requestIdDescription}
         </Text>
       ) : null}
-      {onRetry ? <StateAction label={retryLabel} onPress={onRetry} /> : null}
     </StateFrame>
   );
 }
@@ -166,6 +174,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
+  },
+  content: {
+    alignItems: "center",
   },
   title: {
     color: "#17201D",
