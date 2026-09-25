@@ -28,9 +28,9 @@ React Native / Expo、FastAPI、PostgreSQLというBefore構成は維持する�
 実装前のWork 0として、現在の未commit差分を内容別にreviewし、Public repositoryへ共有可能かを確認する。このreviewは未追跡fileを含む現在の状態そのものが対象なので、`origin/main`から作る空の別worktreeではなく、現在のcheckoutと同じdirectory、または現在のworking treeを開始状態として引き継いだ環境で行う。ここではcommit / pushを自動実行せず、共有baselineが人間の確認後に確定してから、以降の実装を`codex/` branchとPull Requestで進める。
 
 1. FastAPIへrequest ID、成功envelope、RFC 9457 errorの共通処理を追加する。（Work 1で完了）
-2. `app_private`の公開circle read repository / Pydantic modelと一覧・詳細endpointを実装する。（Work 2で実装・検証済み、Pull Request review待ち）
-3. Expoへ4タブ、共通loading / empty / error / offline component、型付きAPI clientを追加する。（次の実装work）
-4. 公開一覧・詳細のvertical sliceをiOS SimulatorとAndroid Emulatorで接続する。
+2. `app_private`の公開circle read repository / Pydantic modelと一覧・詳細endpointを実装する。（Work 2で完了）
+3. Expoへ4タブ、共通loading / empty / error / offline component、型付きAPI clientを追加する。（Work 3で実装、Pull Requestの人間承認待ち）
+4. 公開一覧・詳細のvertical sliceをiOS SimulatorとAndroid Emulatorで接続する。（次の実装work）
 5. profile、interest、view、favorite、推薦を認証前提のsliceとして追加する。
 6. manager application、membership、revision、operator reviewをpermission matrix test付きで追加する。
 7. report、account deletion、監視、backup / restore rehearsalを整え、限定公開へ進む。
@@ -80,6 +80,7 @@ React Native / Expo、FastAPI、PostgreSQLというBefore構成は維持する�
 cd mobile
 npm ci
 cp .env.example .env.local
+npm run api:check
 npm run check
 npx expo-doctor@latest
 ```
@@ -119,6 +120,8 @@ docker compose exec api alembic upgrade head
 - 判断: 開発baselineでは既知のsecurity debtとして一時受容する。限定公開またはreleaseの許可ではなく、信頼できない画像assetをrepository / build入力へ追加しない。
 - 再評価条件: patched upstream versionが利用可能になった時、Work 3以降で画像処理範囲またはbuild入力が変わる時、限定公開 / release判断前。
 - Exit criteria: 限定公開判断前に再監査し、release時までに既知Critical / Highの未対応脆弱性を0件とする。
+
+2026-09-24のWork 3では`openapi-typescript` 6.7.6をdevDependencyとして追加した。全dependency監査はmoderate 15件・high 5件、runtimeだけの監査は既存と同じmoderate 14件・high 4件で、Criticalはともに0件だった。増分のHighはdev-onlyの`undici`経路であり、localのcommit済みOpenAPI snapshot生成に限定する。TypeScript 6をpeer rangeに含む安全な後継generatorが利用可能になった時点で更新する。
 
 ## 9. 参照
 

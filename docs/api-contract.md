@@ -55,7 +55,7 @@ errorはRFC 9457のProblem Detailsを使い、`Content-Type: application/problem
 
 ```json
 {
-  "type": "https://api.example.invalid/problems/validation-error",
+  "type": "about:blank",
   "title": "入力内容を確認してください",
   "status": 422,
   "detail": "2項目を修正してください",
@@ -68,10 +68,13 @@ errorはRFC 9457のProblem Detailsを使い、`Content-Type: application/problem
 }
 ```
 
-- `type`と`code`はclient分岐に使う安定値、`title`と`detail`は表示候補とする。
+- 現在はowned domainが未確定のため、runtimeの`type`は`about:blank`とする。clientは`type`をstringのopaque metadataとして保持し、`type`単独でbusiness logicを分岐しない。
+- `code`をclient分岐に使うstable application codeとし、`title`と`detail`は表示候補とする。
 - 予期しない例外は一般化し、SQL、内部path、stack trace、個人情報を返さない。
 - field errorは配列で返し、serverの文章だけをfield特定に使わせない。
 - 全responseに追跡可能な`requestId`を付ける。
+
+owned domain取得後は、最初の外部配布・beta公開前に`https://<owned-apex-domain>/problems/<problem-slug>`形式の正式HTTPS URIへ移行する。`problem-slug`はlowercaseのASCII Englishによるkebab-caseとし、version、HTTP status、provider名、`/api/v1/`を含めず、原則として末尾slashを付けない。移行前に仮domain、example domain、Render default domain、Supabase default domainを正式なProblem type URIとして使用しない。
 
 主なstatusは次のとおりである。
 

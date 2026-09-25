@@ -635,6 +635,8 @@ passwordは15文字以上・64文字以上を許容し、組合せruleや定期�
 
 breaking changeは新major pathへ分け、旧majorは180日または直近30日active端末の95%移行までの長い方を維持する。OpenAPIを機械可読な一次情報とし、TypeScript clientを生成・Git管理する。
 
+2026-09-23補足: owned domainが未確定の間、Problem Detailsのruntime `type`は`about:blank`を維持し、clientの主要machine-readable discriminatorはstable application `code`とする。`type`はstringのopaque metadataとして扱い、単独でbusiness logicを分岐しない。owned domain取得後、最初の外部配布・beta公開前に`https://<owned-apex-domain>/problems/<problem-slug>`へ移行する。slugはlowercase ASCII Englishのkebab-caseとし、version、HTTP status、provider名、`/api/v1/`、原則末尾slashを含めない。移行前に仮domain、example domain、Render / Supabase default domainを正式URIとして使用しない。
+
 ## DEC-054: `app_private`正式schemaと初回migrationを採用する
 
 - 日付: 2026-09-15
