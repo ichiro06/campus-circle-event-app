@@ -29,13 +29,15 @@ React Native / Expo、FastAPI、PostgreSQLというBefore構成は維持する�
 
 1. FastAPIへrequest ID、成功envelope、RFC 9457 errorの共通処理を追加する。（Work 1で完了）
 2. `app_private`の公開circle read repository / Pydantic modelと一覧・詳細endpointを実装する。（Work 2で完了）
-3. Expoへ4タブ、共通loading / empty / error / offline component、型付きAPI clientを追加する。（Work 3で完了、PR #22でmainへmerge済み。merge commit: `f019ab1`）
-4. 公開一覧・詳細のvertical sliceをiOS SimulatorとAndroid Emulatorで接続する。（次の実装work）
+3. Expoへ4タブ、共通loading / empty / error / offline component、型付きAPI clientを追加する。（`W3 Mobile Foundation`: COMPLETE。PR #22でmainへmerge済み。merge commit: `f019ab1`）
+4. `Home Contract / API Readiness Gate`として、Home正式要件のお気に入り数に基づく並び順に必要な`most_favorited` capabilityを別Workで正式化・実装する。現在のCircle一覧APIは`newest`だけを受け付ける。このGateを通過後、公開一覧・詳細のvertical sliceをiOS SimulatorとAndroid Emulatorで接続する。（`W4 Public Circle Slice`）
 5. profile、interest、view、favorite、推薦を認証前提のsliceとして追加する。
 6. manager application、membership、revision、operator reviewをpermission matrix test付きで追加する。
 7. report、account deletion、監視、backup / restore rehearsalを整え、限定公開へ進む。
 
 正式ORM mappingは各sliceで必要なtableから追加し、初回migrationと差分testを行う。prototypeの`public.circles` / `public.events`へ正式機能を積み上げない。
+
+View定義は正式文書間で未解決である。定義が解決するまで、circle view write、view history behavior、viewをsignalとして使うrecommendation logicは実装しない。この記録はGateだけを示し、閲覧元や計数条件を決定しない。
 
 ## 4. 現在ユーザー操作・外部契約が必要な事項
 
