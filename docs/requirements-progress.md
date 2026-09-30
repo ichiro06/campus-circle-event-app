@@ -1,7 +1,7 @@
 # 要件定義の進捗
 
-- 最終更新日: 2026-09-24
-- 状態: iOS・Android専用方針、Before構成、初期実装に必要な詳細設計・非機能要件を確定。Notion同期と外部project準備を除き、最初のvertical sliceを実装可能
+- 最終更新日: 2026-09-30
+- 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`のHome接続は`Home Contract / API Readiness Gate`通過後に進める
 
 ## 1. 情報源
 
@@ -94,9 +94,11 @@
 
 ## 6. 次のwork
 
-1. Work 3のMobile共通基盤Pull Requestをreviewし、GitHub上のCIと人間承認を確認する。
-2. 公開Circle一覧・詳細を両Simulatorで接続し、最小vertical sliceを完成させる。
-3. 外部projectが必要になる直前にowner・identifier・planを確定する。
-4. 認証・profile・favorite・推薦、manager審査の順でpermission test付き実装へ進む。
+1. `W3 Mobile Foundation`: COMPLETE。PR #22でmainへmerge済み（merge commit: `f019ab1`）。
+2. `Home Contract / API Readiness Gate`: Home正式要件のお気に入り数に基づく並び順に対し、現在のCircle一覧APIは`newest`だけを受け付ける。`most_favorited` capabilityの正式化・実装は別Workで行う。
+3. Gate通過後、`W4 Public Circle Slice`として公開Circle一覧・詳細を両Simulatorで接続し、最小vertical sliceを完成させる。
+4. `View Definition Gate`: View定義は正式文書間で未解決である。解決するまでcircle view write、view history behavior、viewをsignalとして使うrecommendation logicは実装しない。
+5. 外部projectが必要になる直前にowner・identifier・planを確定する。
+6. 認証・profile・favorite、manager審査の順でpermission test付き実装へ進む。Viewをsignalとして使うrecommendationはView Definition Gate解決後とする。
 
 詳細は`docs/coding-readiness.md`と`docs/requirements-decision-report-2026-09-15.md`を参照する。
