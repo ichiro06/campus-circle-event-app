@@ -1,6 +1,6 @@
 # 要件定義の進捗
 
-- 最終更新日: 2026-09-24
+- 最終更新日: 2026-09-30
 - 状態: iOS・Android専用方針、Before構成、初期実装に必要な詳細設計・非機能要件を確定。Notion同期と外部project準備を除き、最初のvertical sliceを実装可能
 
 ## 1. 情報源
@@ -94,7 +94,7 @@
 
 ## 6. 次のwork
 
-1. Work 3のMobile共通基盤Pull Requestをreviewし、GitHub上のCIと人間承認を確認する。
+1. Work 3のMobile共通基盤はPR #22でmainへmerge済み（merge commit: `f019ab1`）。次は公開Circle一覧・詳細の接続へ進む。
 2. 公開Circle一覧・詳細を両Simulatorで接続し、最小vertical sliceを完成させる。
 3. 外部projectが必要になる直前にowner・identifier・planを確定する。
 4. 認証・profile・favorite・推薦、manager審査の順でpermission test付き実装へ進む。

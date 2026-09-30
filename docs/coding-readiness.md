@@ -29,7 +29,7 @@ React Native / Expo、FastAPI、PostgreSQLというBefore構成は維持する�
 
 1. FastAPIへrequest ID、成功envelope、RFC 9457 errorの共通処理を追加する。（Work 1で完了）
 2. `app_private`の公開circle read repository / Pydantic modelと一覧・詳細endpointを実装する。（Work 2で完了）
-3. Expoへ4タブ、共通loading / empty / error / offline component、型付きAPI clientを追加する。（Work 3で実装、Pull Requestの人間承認待ち）
+3. Expoへ4タブ、共通loading / empty / error / offline component、型付きAPI clientを追加する。（Work 3で完了、PR #22でmainへmerge済み。merge commit: `f019ab1`）
 4. 公開一覧・詳細のvertical sliceをiOS SimulatorとAndroid Emulatorで接続する。（次の実装work）
 5. profile、interest、view、favorite、推薦を認証前提のsliceとして追加する。
 6. manager application、membership、revision、operator reviewをpermission matrix test付きで追加する。
