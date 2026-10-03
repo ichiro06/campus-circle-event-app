@@ -95,7 +95,7 @@
 ## 6. 次のwork
 
 1. `W3 Mobile Foundation`: COMPLETE。PR #22でmainへmerge済み（merge commit: `f019ab1`）。
-2. `Home Contract / API Readiness Gate`: Home正式要件のお気に入り数に基づく並び順に対し、現在のCircle一覧APIは`newest`だけを受け付ける。`most_favorited` capabilityの正式化・実装は別Workで行う。
+2. `Home Contract / API Readiness Gate`: Home正式要件のお気に入り数に基づく並び順に対し、現在のCircle一覧APIは`newest`だけを受け付ける。`most_favorited` capabilityの正式化・実装は別Workで行う。favorite集計のmanager / service operator除外scopeとrole評価時点（A1）は2026-10-04のHuman Decision（FR-002・DEC-055 clarification）で確定済みだが、A2、R1、R2等は未解決でありGate全体は未通過である。
 3. Gate通過後、`W4 Public Circle Slice`として公開Circle一覧・詳細を両Simulatorで接続し、最小vertical sliceを完成させる。
 4. `View Definition Gate`: View定義は正式文書間で未解決である。解決するまでcircle view write、view history behavior、viewをsignalとして使うrecommendation logicは実装しない。
 5. 外部projectが必要になる直前にowner・identifier・planを確定する。

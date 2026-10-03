@@ -224,7 +224,11 @@ actor、endpoint、key UUID、payload hash、処理状態、status code、respon
 - onboardingで選んだ興味categoryへ3点加算する。
 - counted viewが5件未満なら、興味scoreの後に公開サークルのお気に入り数を使う。興味もない場合はお気に入り数順とする。
 - 同一user・circleの閲覧は30分に1回だけ数える。詳細取得成功前、未ログイン、停止account、非公開・削除circleは数えない。
-- manager / operatorによる自分の担当circleの閲覧・お気に入りは公開人気scoreから除外する。
+- 公開人気およびmost_favoritedのfavorite集計では、次のaccountによるfavoriteを除外する（2026-10-04 Human Decision、DEC-055 clarification）。
+  - manager（Circle単位）: 対象Circleに対して現在`active`なmanagerであるaccountの、当該Circleへのfavoriteだけを除外する。同じaccountが他Circleへ行った通常のfavoriteは、他の除外条件に該当しない限り集計する。
+  - service operator（global）: 現在service operatorであるaccountのfavoriteは、対象Circleにかかわらず全Circleで除外する。
+  - role判定の時点: favorite登録時点ではなく、ランキング集計時点の現在activeなroleで判定する。
+- 閲覧signalにおけるmanager / operatorの除外scopeとrole判定時点は、上記favoriteの確定事項を横展開せず、未決（要Human Decision）とする。従前の「担当circleの閲覧は公開人気scoreから除外する」記述は、この点が決まるまで変更しない。
 - 上位10件はcategory score降順、公開お気に入り数降順、`published_at`降順、circle UUID昇順で決める。
 - 11件目以降はuser ID、JST日付、filterをseedにした決定的shuffleとし、その日・同一条件では順序を安定させる。
 - 1日100件を超える詳細取得、1日30回を超えるfavorite toggle等の異常signalは公開rankingから一時除外し、24時間以内に自動解除または運営確認する。

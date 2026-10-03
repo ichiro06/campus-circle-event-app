@@ -30,7 +30,7 @@ React Native / Expo、FastAPI、PostgreSQLというBefore構成は維持する�
 1. FastAPIへrequest ID、成功envelope、RFC 9457 errorの共通処理を追加する。（Work 1で完了）
 2. `app_private`の公開circle read repository / Pydantic modelと一覧・詳細endpointを実装する。（Work 2で完了）
 3. Expoへ4タブ、共通loading / empty / error / offline component、型付きAPI clientを追加する。（`W3 Mobile Foundation`: COMPLETE。PR #22でmainへmerge済み。merge commit: `f019ab1`）
-4. `Home Contract / API Readiness Gate`として、Home正式要件のお気に入り数に基づく並び順に必要な`most_favorited` capabilityを別Workで正式化・実装する。現在のCircle一覧APIは`newest`だけを受け付ける。このGateを通過後、公開一覧・詳細のvertical sliceをiOS SimulatorとAndroid Emulatorで接続する。（`W4 Public Circle Slice`）
+4. `Home Contract / API Readiness Gate`として、Home正式要件のお気に入り数に基づく並び順に必要な`most_favorited` capabilityを別Workで正式化・実装する。現在のCircle一覧APIは`newest`だけを受け付ける。このGateを通過後、公開一覧・詳細のvertical sliceをiOS SimulatorとAndroid Emulatorで接続する。（`W4 Public Circle Slice`）なお、2026-10-04のHuman Decision（FR-002・DEC-055 clarification）により、favorite集計のmanager / service operator除外scopeとrole評価時点（A1）は確定した。ただし他の未解決事項（A2、R1、R2等）が残るため、このGate全体は未通過のままである。
 5. profile、interest、view、favorite、推薦を認証前提のsliceとして追加する。
 6. manager application、membership、revision、operator reviewをpermission matrix test付きで追加する。
 7. report、account deletion、監視、backup / restore rehearsalを整え、限定公開へ進む。
