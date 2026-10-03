@@ -659,6 +659,20 @@ Supabase Authの`sub`と`accounts.id`を同じUUIDにするが、local DB再現�
 
 異常signalはrankingから一時除外し、利用者へは「最近見たカテゴリ」「興味」「人気」等の説明を表示する。将来の有料順位は自然順位へ混ぜず、広告表示と別decisionを必要とする。
 
+### 2026-10-04 clarification（Human Decision）
+
+上記の決定日（2026-09-15）と決定内容は維持し、新しいDEC番号は発行しない。「自団体manager / operator」signalの除外のうち、favorite集計の除外scopeとrole評価時点だけを次のとおり明確化する（Notion DEC-055・FR-002の2026-10-04 clarificationと同期）。
+
+- 対象: 公開人気およびmost_favoritedのfavorite集計。
+- Manager（Circle単位）: 対象Circleに対して現在activeなmanagerであるaccountの、当該Circleへのfavoriteだけを集計から除外する。
+- Service operator（global）: 現在service operatorであるaccountのfavoriteは、対象Circleにかかわらず全Circleで集計から除外する。
+- Role評価時点: manager / service operatorの判定は、favorite登録時点ではなく、ランキング集計時点の現在activeなroleで行う。
+- 他Circleのmanager: 担当外のCircleへ行った通常のfavoriteは、service operator等の別除外条件に該当しない限り通常のfavoriteとして集計する。
+- 変更しないもの: 推薦score、閲覧・favorite・興味の各点数、30分重複除外、top 10、決定的shuffle、不正signal除外原則、停止account・非公開circle・削除circleの除外。
+- 決めないもの（未決）: 閲覧等favorite以外のsignalにおけるmanager / operatorの除外scope、filterの意味、view記録trigger、cold-startの順序、deletion_pending等のfavorite扱い、異常signalの閾値、most_favorited専用tie-break、ranking変動中のcursor挙動、favorite全0時の順序、account削除時のfavorite、most_favoritedのNFR分類。
+- 旧記述との関係: 上記favoriteについて、従前の「自団体manager / operator」を担当Circleだけの除外と読む解釈は採用しない。
+- Human Decision日: 2026-10-04
+
 ## DEC-056: manager確認の証拠、期限、異議申立て、保持を確定する
 
 - 日付: 2026-09-15
