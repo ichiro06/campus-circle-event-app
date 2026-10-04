@@ -1,6 +1,6 @@
 # 技術・設計上の決定
 
-最終更新日: 2026-09-17（Pull Requestのmerge方式とcommit identityを確定）
+最終更新日: 2026-10-04（DEC-061: most_favoritedの集計対象・段階的不正対策・安定順序・pagination方針を同期）
 
 この文書は、過去の方針と最新方針を混同しないための決定記録である。旧方針を消さず、何から何へ変更したかを残す。環境構築だけでは判断できない内容は「未確定」とする。
 
@@ -33,12 +33,13 @@
 - profile・account recovery: DEC-052
 - API契約: DEC-053
 - 初期DB schema: DEC-054
-- 推薦・不正対策: DEC-055
+- 推薦・不正対策: DEC-055（favorite集計のeligible条件・不正検知の段階導入・most_favorited専用の順序とpaginationはDEC-061）
 - manager確認の証拠・SLA・保持: DEC-056
 - iOS Sign in with Apple: DEC-057
 - 非機能目標: DEC-058
 - Pull Requestのmerge方式: DEC-059
 - commit author email: DEC-060
+- most_favoritedの集計対象・段階的不正対策・安定順序・pagination: DEC-061
 
 DEC-001からDEC-043には、検討経緯を残すため旧方針も記録している。状態が「置換」の決定内容や補足は現在の採用方針ではないため、上記の決定と各正式仕様を優先して読む。
 
@@ -670,6 +671,7 @@ Supabase Authの`sub`と`accounts.id`を同じUUIDにするが、local DB再現�
 - 他Circleのmanager: 担当外のCircleへ行った通常のfavoriteは、service operator等の別除外条件に該当しない限り通常のfavoriteとして集計する。
 - 変更しないもの: 推薦score、閲覧・favorite・興味の各点数、30分重複除外、top 10、決定的shuffle、不正signal除外原則、停止account・非公開circle・削除circleの除外。
 - 決めないもの（未決）: 閲覧等favorite以外のsignalにおけるmanager / operatorの除外scope、filterの意味、view記録trigger、cold-startの順序、deletion_pending等のfavorite扱い、異常signalの閾値、most_favorited専用tie-break、ranking変動中のcursor挙動、favorite全0時の順序、account削除時のfavorite、most_favoritedのNFR分類。
+- 2026-10-04追記（Notion DEC-055の追記と同期）: 上記「決めないもの」のうち、deletion_pending等のfavorite扱い、most_favorited専用tie-break、ranking変動中のcursor挙動、favorite全0時の順序、account削除時のfavoriteは、DEC-061（D1・D3・D4）で決定した。異常signalの閾値は未決のままで、DEC-061（D2）により、初回most_favorited capabilityでは不正検知を実装せず、Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前に別Human Decisionで確定・実装する。閲覧等favorite以外のsignalにおけるmanager / operatorの除外scope、filterの意味、view記録trigger、cold-startの順序、most_favoritedのNFR分類は引き続き未決。本追記は上記A1 clarificationの内容を変更しない。
 - 旧記述との関係: 上記favoriteについて、従前の「自団体manager / operator」を担当Circleだけの除外と読む解釈は採用しない。
 - Human Decision日: 2026-10-04
 
@@ -724,6 +726,63 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - 旧方針: 開発端末の通常email設定を継承し、repository単位のcommit email方針を定めていなかった。
 - 根拠: GitHubのcommit email設定・email address公式仕様、`AGENTS.md`、`CONTRIBUTING.md`、`docs/development-workflow.md`。
 
+## DEC-061: most_favoritedの集計対象・段階的不正対策・安定順序・pagination方針を確定する
+
+- 日付: 2026-10-04
+- 状態: 採用
+- 決定内容: Human Decision（2026-10-04 JST）。D1〜D4を次のとおり決定する。既存のDEC-055（2026-09-15）と、その2026-10-04 clarification（A1: manager除外は対象Circle単位、service operator除外は全Circle、role判定は集計時点）は変更しない。本DecisionはA1に追加されるmost_favorited contractである。
+- 決定理由: most_favorited backend capabilityの実装前に、集計対象・不正対策の段階・完全順序・pagination挙動の解釈差をなくすため。D1はschemaの挙動ではなくHumanが採用したproduct behaviorとして記録する。D2は未承認の閾値を正式仕様にしないため段階導入とし、release gateで実装漏れを防ぐ。D3は新しく公開されたCircleを同数時に優先する。
+- 旧方針: deletion_pending等のfavorite扱い、異常signalの閾値、most_favorited専用tie-break、ranking変動中のcursor挙動、favorite全0時の順序、account削除時のfavoriteを未決としていた状態（DEC-055の2026-10-04 clarification）。
+- 根拠: Notion DEC-061（意思決定ログ）、FR-002、FR-005、API設計、DEC-055（2026-10-04 clarificationを含む）。
+
+### D1 Account lifecycleとfavorite集計
+
+- 公開人気および`GET /api/v1/circles?sort=most_favorited`のfavorite集計では、favoriteの所有者が現在`active`なaccountであることをeligible条件とする。
+
+| account状態 | favoriteの集計 |
+| --- | --- |
+| `active` | eligible（集計する） |
+| `suspended` | excluded（集計しない） |
+| `deletion_pending` | excluded（集計しない） |
+| `deleted` | excluded（集計しない） |
+
+- 削除処理が完了する前でも、accountが`deletion_pending`になった時点から、そのaccountのfavoriteを公開人気のsignalとして使用しない。
+- accountをphysical deleteした場合、現行schemaの`ON DELETE CASCADE`によりfavoriteもphysical deleteする方式を、初期実装のproduct behaviorとして採用する。schemaの挙動を仕様とみなすのではなく、Human Decisionとして「physical delete + favorite delete」を採用したことを記録する。
+- favorite ownerを匿名化してfavoriteだけを保持する方式は、初期実装では採用しない。
+- A1の除外条件（対象Circleの現在activeなmanager、現在のservice operator）は、上記eligible条件に加えて引き続き別途適用する。他Circleのmanagerのfavoriteは、別の除外条件に該当しない限りeligibleである。
+
+### D2 Fraud / abnormal favorite signalの段階導入
+
+- DEC-055の「不正signalを公開人気から除外する」原則は維持する。削除も弱体化もしない。
+- 初回のmost_favorited backend capabilityでは、fraud / abnormal favorite detectionを実装しない。
+- repository文書に存在した候補値（favorite toggleが1日30回を超える場合、24時間のranking除外など）は、Human Approvedな正式閾値として採用しない。
+- Release gate（OPEN）: 次のどちらか早い時点より前に、fraud exclusionの具体仕様を別Human Decisionとして確定し、実装する。
+  - Home recommendationをproduction-readyとして完了扱いする前
+  - external beta / production releaseを開始する前
+- 別Human Decisionで最低限決める対象: 検知rule、閾値、観測window、event / data source、除外期間、解除条件、保存期間、query / write-pathの責任境界。本Decisionではこれらの具体値を決めない。
+
+### D3 most_favoritedの完全順序
+
+- 完全順序は`favorite_count DESC, published_at DESC NULLS LAST, id DESC`とする。favorite_countはeligible favorite count（D1とA1による）、idはcircle idである。
+- favorite countが同数の場合は、新しく公開されたCircleを優先する。
+- favorite countが全Circleで0の場合、結果は実質的に`published_at DESC NULLS LAST, id DESC`となり、既存の`newest`と同じtie-break方向になる。
+- この順序はcursor paginationにも使用する。
+- この順序は`GET /api/v1/circles?sort=most_favorited`のCircle一覧専用である。FR-002のHome推薦の上位10件のtie-break（score、お気に入り数、公開日時、UUID）は変更せず、両者を同一のsort contractとして扱わない。
+- favoriteCountをAPI response fieldとして公開するかは本Decisionで決めない（H10、未決）。
+
+### D4 Mutable rankingのpagination
+
+- most_favoritedでは、初期実装としてlive keyset paginationを採用する。
+- cursorは少なくとも`favoriteCount`、`publishedAt`、`circleId`をsort keyとして含む。既存のcursor contract（opaque、signed、sort bound、filter bound、24時間期限）は維持する。
+- snapshot rankingは保証しない。page取得の間にfavorite countが変動した場合、順位移動によるskipまたはduplicateが起こりうることを初期contractとして許容する。
+- refresh / 明示的な再読み込み時は、既存cursorを破棄して先頭から再取得する。
+- 初期実装では、frozen ranking snapshot、ranking version、ranking変動によるcursor invalidationは採用しない。
+- cursorが`favoriteCount`を内部のsort keyとして含むことは、`favoriteCount`をAPI response fieldとして公開することを意味しない。
+
+### 本Decisionで決めないもの（未決）
+
+推薦shuffleにおけるfilterの意味、view記録のtrigger、cold-startの順序制御、将来のrolling-window集計、favoriteCountのAPI response公開（H10）、cache / preaggregationのfreshness、most_favoritedのNFR分類（GET p95 500ミリ秒／検索・書込みp95 800ミリ秒のどちらか）、fraud検知の具体rule・閾値（D2のrelease gateで別途決定）、閲覧signalに対するmanager / operatorの除外scope、Home推薦の上位10件のtie-break（FR-002）。本Decisionの順序はCircle一覧の`sort=most_favorited`に適用する。
+
 ## 要確認・次workへ引き継ぐ項目
 
 - サービスの正式名称、大学名・公開情報の利用確認
@@ -738,5 +797,7 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - custom SMTP、monitoring、analyticsのservice選定と費用
 - Next.js technical verificationのarchiveまたは削除時期
 - Notionの議事録ページ更新をrepository docsへ同期する担当、確認頻度、差分レビューの運用
+- fraud / abnormal favorite exclusionの具体仕様（別Human Decision。DEC-061 D2のrelease gate: Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前）
+- favoriteCountのAPI response公開（H10）、cursor payloadの機密性（現行codecは署名のみでpayloadはclientから読める。`docs/api-contract.md`参照。DEC-061では決めていない、別Human Decision候補）、most_favoritedのNFR分類
 
 大学Google Workspace限定OAuthの検証は引き継がない。一般Google OAuthとiOSのSign in with Appleはinitial認証として実装対象である。

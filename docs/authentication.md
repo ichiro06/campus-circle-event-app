@@ -410,7 +410,7 @@ MFAを導入するservice operatorについては、enrollment、recovery code�
 - 利用者はnickname、profile image、非公開profile、email、password、通知設定を管理できる。
 - account削除前に影響と復元可否を表示し、再確認する。
 - 削除時は現在の認証手段による再認証を要求する。
-- auth user、private profile、interest、view history、favoriteを削除または匿名化する。
+- auth user、private profile、interest、view historyを削除または匿名化する。favoriteはaccount physical delete時に`ON DELETE CASCADE`で物理削除し、匿名化して保持しない（DEC-061 D1）。
 - 管理者membership、申請、招待はaccount削除時に失効させる。未処理の申請・招待も取り消す。
 - 管理中circleの公開情報を個人accountと同時に自動削除しない。circleはユーザーaccountとは別の事業データとして扱う。
 - 他に`active`管理者がいる場合は、そのcircleを継続し、削除するユーザーのmembershipだけを解除する。
@@ -419,7 +419,7 @@ MFAを導入するservice operatorについては、enrollment、recovery code�
 - accountのemail変更やidentity linkingは、circle membershipを別ユーザーへ移す操作ではない。
 - account停止・侵害対応では、membershipを即時`revoked`にし、必要に応じてsessionの失効と再確認を行う。
 - Supabase Authのaccount削除はFastAPIの保護された処理から行う。JWTは発行済みtokenが有効期限まで残り得るため、削除済み・停止済みaccountの重要操作では現在のaccount状態とsessionをFastAPIで再確認する。
-- アプリ内から削除を開始できるようにし、本人再認証後に直ちに`deletion_pending`として重要操作を停止する。
+- アプリ内から削除を開始できるようにし、本人再認証後に直ちに`deletion_pending`として重要操作を停止する。`deletion_pending`になった時点から、そのaccountのfavoriteは公開人気・`sort=most_favorited`の集計に使用しない（DEC-061 D1）。
 - personal dataはactive systemから7日以内、通常backupから30日以内に削除する。削除完了までのstatusと問い合わせ方法を表示する。
 
 ### 16.1 サークル管理者の追加・削除・交代

@@ -94,6 +94,8 @@ email、password hash、OAuth provider tokenを複製しない。login identity�
 
 `user_id`、`circle_id`、`created_at`を持ち、`(user_id, circle_id)`をuniqueとする。削除は解除として物理削除し、監査対象操作にはしない。
 
+accountをphysical deleteした場合、`favorites.user_id`の`ON DELETE CASCADE`によりfavoriteもphysical deleteする。favorite ownerを匿名化してfavoriteだけを保持する方式は初期実装で採用しない（2026-10-04 Human Decision、DEC-061 D1）。
+
 ## 5. Circle・公開情報
 
 ### 5.1 `circles`
@@ -224,14 +226,19 @@ actor、endpoint、key UUID、payload hash、処理状態、status code、respon
 - onboardingで選んだ興味categoryへ3点加算する。
 - counted viewが5件未満なら、興味scoreの後に公開サークルのお気に入り数を使う。興味もない場合はお気に入り数順とする。
 - 同一user・circleの閲覧は30分に1回だけ数える。詳細取得成功前、未ログイン、停止account、非公開・削除circleは数えない。
-- 公開人気およびmost_favoritedのfavorite集計では、次のaccountによるfavoriteを除外する（2026-10-04 Human Decision、DEC-055 clarification）。
+- 公開人気およびmost_favoritedのfavorite集計のeligible条件は、favoriteの所有者が現在`active`なaccountであることとする（2026-10-04 Human Decision、DEC-061 D1）。
+  - `active`: eligible。`suspended`、`deletion_pending`、`deleted`: 集計しない。
+  - `deletion_pending`になった時点から、削除処理の完了前でも公開人気のsignalとして使用しない。
+  - account physical delete時は`ON DELETE CASCADE`によりfavoriteもphysical deleteし、匿名化保持は採用しない。
+- 公開人気およびmost_favoritedのfavorite集計では、上記eligible条件に加えて、次のaccountによるfavoriteを除外する（2026-10-04 Human Decision、DEC-055 clarification）。
   - manager（Circle単位）: 対象Circleに対して現在`active`なmanagerであるaccountの、当該Circleへのfavoriteだけを除外する。同じaccountが他Circleへ行った通常のfavoriteは、他の除外条件に該当しない限り集計する。
   - service operator（global）: 現在service operatorであるaccountのfavoriteは、対象Circleにかかわらず全Circleで除外する。
   - role判定の時点: favorite登録時点ではなく、ランキング集計時点の現在activeなroleで判定する。
 - 閲覧signalにおけるmanager / operatorの除外scopeとrole判定時点は、上記favoriteの確定事項を横展開せず、未決（要Human Decision）とする。従前の「担当circleの閲覧は公開人気scoreから除外する」記述は、この点が決まるまで変更しない。
-- 上位10件はcategory score降順、公開お気に入り数降順、`published_at`降順、circle UUID昇順で決める。
+- 上位10件はcategory score降順、公開お気に入り数降順、`published_at`降順、circle UUID昇順で決める。これはHome推薦専用のtie-breakであり、DEC-061 D3の`sort=most_favorited`の順序とは別contractである。
 - 11件目以降はuser ID、JST日付、filterをseedにした決定的shuffleとし、その日・同一条件では順序を安定させる。
-- 1日100件を超える詳細取得、1日30回を超えるfavorite toggle等の異常signalは公開rankingから一時除外し、24時間以内に自動解除または運営確認する。
+- 異常signal（fraud / abnormal favorite等）を公開rankingから除外する原則は維持する（DEC-055）。ただし、検知rule、閾値、観測window、event / data source、除外期間、解除条件、保存期間、query / write-pathの責任境界は未決であり、別Human Decisionで確定する。従前この位置に記載していた「1日100件を超える詳細取得」「1日30回を超えるfavorite toggle」「24時間以内の自動解除または運営確認」は、Human Approvedな正式値ではない未承認の候補であり、現行contractとして扱わない（DEC-061 D2）。
+- 初回のmost_favorited backend capabilityではfraud / abnormal favorite detectionを実装しない。Home recommendationをproduction-readyとして完了扱いする前、またはexternal beta / production releaseを開始する前のどちらか早い時点より前に、上記の具体仕様を別Human Decisionとして確定し、実装する（release gate、状態: OPEN）。
 - 推薦には「最近見たカテゴリ」「興味」「人気」等の説明labelを表示する。
 - 履歴停止・消去は次回取得から即時反映する。有料順位を導入する場合は自然順位と混ぜず、広告表示と別決定を必要とする。
 
@@ -240,7 +247,7 @@ actor、endpoint、key UUID、payload hash、処理状態、status code、respon
 | Data | Retention / deletion |
 | --- | --- |
 | Auth identity | account削除時にSupabase Authから削除。active systemは7日以内 |
-| profile、interest、favorite | userが変更・削除するかaccount削除まで |
+| profile、interest、favorite | userが変更・削除するかaccount削除まで。account physical delete時のfavoriteは`ON DELETE CASCADE`で物理削除し、匿名化保持しない（DEC-061 D1） |
 | circle view | 最大20件か90日の早い方。停止後は新規収集しない |
 | manager evidence原本 | 最終判断または異議申立て終了から30日、絶対上限90日 |
 | application・membership判断metadata | 関係終了後365日 |
