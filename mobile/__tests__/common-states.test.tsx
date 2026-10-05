@@ -70,4 +70,29 @@ describe("common state presentation", () => {
     expect(screen.getByText("最終更新: 10分前")).toBeTruthy();
     expect(screen.getByRole("alert")).toBeTruthy();
   });
+  it("renders an optional secondary action next to the Error retry", async () => {
+    const onRetry = jest.fn();
+    const onSecondaryAction = jest.fn();
+    const screen = await render(
+      <ErrorState
+        description="現在表示できません。"
+        onRetry={onRetry}
+        onSecondaryAction={onSecondaryAction}
+        secondaryActionLabel="一覧へ戻る"
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole("button", { name: "一覧へ戻る" }));
+    await fireEvent.press(screen.getByRole("button", { name: "再試行" }));
+    expect(onSecondaryAction).toHaveBeenCalledTimes(1);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders an optional retry on the Offline state", async () => {
+    const onRetry = jest.fn();
+    const screen = await render(<OfflineState onRetry={onRetry} />);
+
+    await fireEvent.press(screen.getByRole("button", { name: "再試行" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
 });

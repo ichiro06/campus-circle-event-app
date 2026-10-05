@@ -5,6 +5,7 @@ export type ApiFailure =
       kind: "problem";
       httpStatus: number;
       problem: ProblemDetails;
+      retryAfterMs?: number;
     }
   | {
       kind: "network";
@@ -21,6 +22,7 @@ export type ApiFailure =
       kind: "unexpectedResponse";
       httpStatus?: number;
       contentType?: string;
+      retryAfterMs?: number;
     };
 
 function getFailureMessage(failure: ApiFailure): string {

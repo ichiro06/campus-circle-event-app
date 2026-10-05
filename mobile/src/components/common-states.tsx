@@ -91,17 +91,22 @@ export function EmptyState({
 
 export interface ErrorStateProps {
   description: string;
+  /** A non-retry way out, e.g. returning to the list when the target is unavailable. */
+  onSecondaryAction?: () => void;
   onRetry?: () => void;
   requestId?: string;
   retryLabel?: string;
+  secondaryActionLabel?: string;
   title?: string;
 }
 
 export function ErrorState({
   description,
   onRetry,
+  onSecondaryAction,
   requestId,
   retryLabel = "再試行",
+  secondaryActionLabel,
   title = "読み込めませんでした",
 }: ErrorStateProps) {
   const requestIdDescription = requestId
@@ -112,7 +117,15 @@ export function ErrorState({
     <StateFrame
       accessibilityLabel={`${title}。${description}`}
       action={
-        onRetry ? <StateAction label={retryLabel} onPress={onRetry} /> : null
+        <>
+          {onRetry ? <StateAction label={retryLabel} onPress={onRetry} /> : null}
+          {onSecondaryAction && secondaryActionLabel ? (
+            <StateAction
+              label={secondaryActionLabel}
+              onPress={onSecondaryAction}
+            />
+          ) : null}
+        </>
       }
       description={description}
       role="alert"
@@ -130,17 +143,24 @@ export function ErrorState({
 export interface OfflineStateProps {
   description?: string;
   lastUpdatedLabel?: string;
+  onRetry?: () => void;
+  retryLabel?: string;
   title?: string;
 }
 
 export function OfflineState({
   description = "インターネット接続を確認してください。",
   lastUpdatedLabel,
+  onRetry,
+  retryLabel = "再試行",
   title = "オフラインです",
 }: OfflineStateProps) {
   return (
     <StateFrame
       accessibilityLabel={`${title}。${description}`}
+      action={
+        onRetry ? <StateAction label={retryLabel} onPress={onRetry} /> : null
+      }
       description={description}
       role="alert"
       title={title}

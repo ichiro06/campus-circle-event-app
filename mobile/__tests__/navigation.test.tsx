@@ -1,6 +1,15 @@
 import { render } from "@testing-library/react-native";
 import { useLocalSearchParams } from "expo-router";
 
+import {
+  circleId,
+  createMockApi,
+  makeDetail,
+  makeDetailResponse,
+  makeListResponse,
+} from "../test-support/circles";
+import { renderWithApi } from "../test-support/render";
+
 import { TAB_ROUTES } from "../src/app/(tabs)/_layout";
 import FavoritesScreen from "../src/app/(tabs)/favorites";
 import HomeScreen from "../src/app/(tabs)/index";
@@ -37,13 +46,17 @@ describe("mobile navigation shell", () => {
     });
   });
 
-  it("renders the logged-out Home shell", async () => {
-    const home = await render(<HomeScreen />);
+  it("renders the logged-out Home screen", async () => {
+    const { api, listCircles } = createMockApi();
+    listCircles.mockResolvedValue(makeListResponse({ items: [] }));
+    const home = await renderWithApi(<HomeScreen />, api);
     expect(home.getByText("サークルを見つけよう")).toBeTruthy();
   });
 
-  it("renders the logged-out Search shell", async () => {
-    const search = await render(<SearchScreen />);
+  it("renders the logged-out Search screen", async () => {
+    const { api, listCircles } = createMockApi();
+    listCircles.mockResolvedValue(makeListResponse({ items: [] }));
+    const search = await renderWithApi(<SearchScreen />, api);
     expect(search.getByText("サークルを検索")).toBeTruthy();
   });
 
@@ -63,16 +76,13 @@ describe("mobile navigation shell", () => {
     ).toBeTruthy();
   });
 
-  it("accepts the Circle detail route parameter", async () => {
-    mockUseLocalSearchParams.mockReturnValue({
-      circleId: "00000000-0000-0000-0000-000000000001",
-    });
-    const detail = await render(<CircleDetailScreen />);
+  it("loads the Circle named by the detail route parameter", async () => {
+    mockUseLocalSearchParams.mockReturnValue({ circleId: circleId(1) });
+    const { api, getCircle } = createMockApi();
+    getCircle.mockResolvedValue(makeDetailResponse(makeDetail(1)));
+    const detail = await renderWithApi(<CircleDetailScreen />, api);
 
-    expect(
-      detail.getByText(
-        "サークルID: 00000000-0000-0000-0000-000000000001",
-      ),
-    ).toBeTruthy();
+    expect(await detail.findByText("テストサークル1")).toBeTruthy();
+    expect(getCircle.mock.calls[0]?.[0]).toBe(circleId(1));
   });
 });

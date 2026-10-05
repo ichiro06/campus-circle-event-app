@@ -86,6 +86,7 @@ describe("createApiTransport", () => {
   it("returns a successful JSON response", async () => {
     const fetchMock = createFetchMock(mockResponse({ data: "ok" }));
     const transport = createApiTransport({
+      retryDelaysMs: [],
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
     });
@@ -98,6 +99,7 @@ describe("createApiTransport", () => {
   it("serializes repeated query values without changing the cursor", async () => {
     const fetchMock = createFetchMock(mockResponse({ data: [] }));
     const transport = createApiTransport({
+      retryDelaysMs: [],
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
     });
@@ -118,6 +120,7 @@ describe("createApiTransport", () => {
 
   it("classifies a valid HTTP Problem", async () => {
     const transport = createApiTransport({
+      retryDelaysMs: [],
       baseUrl: "https://api.example.com",
       fetchImpl: createFetchMock(
         mockResponse(validProblem, {
@@ -187,6 +190,7 @@ describe("createApiTransport", () => {
     },
   ])("classifies $name as unexpectedResponse", async ({ response }) => {
     const transport = createApiTransport({
+      retryDelaysMs: [],
       baseUrl: "https://api.example.com",
       fetchImpl: createFetchMock(response),
     });
@@ -202,6 +206,7 @@ describe("createApiTransport", () => {
       .fn()
       .mockRejectedValue(new TypeError("Network request failed")) as jest.MockedFunction<FetchImplementation>;
     const transport = createApiTransport({
+      retryDelaysMs: [],
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
     });
@@ -223,6 +228,7 @@ describe("createApiTransport", () => {
     const fetchMock = createFetchMock(mockResponse({ data: [] }));
     callerController.abort();
     const transport = createApiTransport({
+      retryDelaysMs: [],
       accessTokenProvider,
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
@@ -249,6 +255,7 @@ describe("createApiTransport", () => {
     const accessTokenProvider = jest.fn(() => providerDeferred.promise);
     const fetchMock = createFetchMock(mockResponse({ data: [] }));
     const transport = createApiTransport({
+      retryDelaysMs: [],
       accessTokenProvider,
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
@@ -287,6 +294,7 @@ describe("createApiTransport", () => {
     );
     const fetchMock = createFetchMock(mockResponse({ data: [] }));
     const transport = createApiTransport({
+      retryDelaysMs: [],
       accessTokenProvider: () => providerDeferred.promise,
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
@@ -322,6 +330,7 @@ describe("createApiTransport", () => {
     const providerError = new Error("provider internal failure details");
     const fetchMock = createFetchMock(mockResponse({ data: [] }));
     const transport = createApiTransport({
+      retryDelaysMs: [],
       accessTokenProvider: async () => {
         throw providerError;
       },
@@ -346,6 +355,7 @@ describe("createApiTransport", () => {
   it("continues without Authorization when the token provider resolves null", async () => {
     const fetchMock = createFetchMock(mockResponse({ data: [] }));
     const transport = createApiTransport({
+      retryDelaysMs: [],
       accessTokenProvider: async () => null,
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
@@ -363,6 +373,7 @@ describe("createApiTransport", () => {
     const providerDeferred = createDeferred<string | null>();
     const fetchMock = createFetchMock(mockResponse({ data: [] }));
     const transport = createApiTransport({
+      retryDelaysMs: [],
       accessTokenProvider: () => providerDeferred.promise,
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
@@ -388,6 +399,7 @@ describe("createApiTransport", () => {
     const callerController = new AbortController();
     const fetchMock = createFetchMock(mockResponse({ data: [] }));
     const transport = createApiTransport({
+      retryDelaysMs: [],
       accessTokenProvider: () => providerDeferred.promise,
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
@@ -421,6 +433,7 @@ describe("createApiTransport", () => {
         fetchDeferred.promise,
     ) as jest.MockedFunction<FetchImplementation>;
     const transport = createApiTransport({
+      retryDelaysMs: [],
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
     });
@@ -454,6 +467,7 @@ describe("createApiTransport", () => {
       },
     ) as jest.MockedFunction<FetchImplementation>;
     const transport = createApiTransport({
+      retryDelaysMs: [],
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
     });
@@ -481,6 +495,7 @@ describe("createApiTransport", () => {
       },
     ) as jest.MockedFunction<FetchImplementation>;
     const transport = createApiTransport({
+      retryDelaysMs: [],
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
     });
@@ -513,6 +528,7 @@ describe("createApiTransport", () => {
       "removeEventListener",
     );
     const transport = createApiTransport({
+      retryDelaysMs: [],
       baseUrl: "https://api.example.com",
       fetchImpl: createFetchMock(mockResponse({ data: [] })),
     });
@@ -533,6 +549,7 @@ describe("createApiTransport", () => {
   it("adds safe custom headers without Authorization", async () => {
     const fetchMock = createFetchMock(mockResponse({ data: [] }));
     const transport = createApiTransport({
+      retryDelaysMs: [],
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
     });
@@ -555,6 +572,7 @@ describe("createApiTransport", () => {
   it("injects a Bearer token from the token provider", async () => {
     const fetchMock = createFetchMock(mockResponse({ data: [] }));
     const transport = createApiTransport({
+      retryDelaysMs: [],
       accessTokenProvider: async () => "test-token",
       baseUrl: "https://api.example.com",
       fetchImpl: fetchMock,
@@ -572,6 +590,7 @@ describe("createApiTransport", () => {
     async (headerName) => {
       const fetchMock = createFetchMock(mockResponse({ data: [] }));
       const transport = createApiTransport({
+        retryDelaysMs: [],
         baseUrl: "https://api.example.com",
         fetchImpl: fetchMock,
       });
@@ -592,6 +611,7 @@ describe("createApiTransport", () => {
     async (headerName) => {
       const fetchMock = createFetchMock(mockResponse({ data: [] }));
       const transport = createApiTransport({
+        retryDelaysMs: [],
         baseUrl: "https://api.example.com",
         fetchImpl: fetchMock,
       });
