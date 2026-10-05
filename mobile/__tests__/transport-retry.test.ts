@@ -220,14 +220,18 @@ describe("GET retry", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("prefers Retry-After over the backoff schedule", async () => {
+  it.each([
+    ["3", 3_000],
+    ["30", 30_000],
+    ["120", 120_000],
+  ])("waits the full Retry-After of %s seconds before retrying", async (value, waitMs) => {
     const fetchMock = mockFetch(
-      problemResponse(429, { "retry-after": "3" }),
+      problemResponse(429, { "retry-after": value }),
       jsonResponse({ data: "ok" }),
     );
     const pending = createTransport(fetchMock).request(request);
 
-    await advance(2_999);
+    await advance(waitMs - 1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     await advance(1);
 
@@ -235,12 +239,64 @@ describe("GET retry", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("surfaces a Retry-After that is too long to wait for without retrying", async () => {
-    const fetchMock = mockFetch(problemResponse(429, { "retry-after": "120" }));
+  it("uses an HTTP-date Retry-After as the retry wait", async () => {
+    jest.setSystemTime(Date.parse("2026-10-05T00:00:00Z"));
+    const fetchMock = mockFetch(
+      problemResponse(503, { "retry-after": "Mon, 05 Oct 2026 00:00:45 GMT" }),
+      jsonResponse({ data: "ok" }),
+    );
+    const pending = createTransport(fetchMock).request(request);
 
-    await expect(createTransport(fetchMock).request(request)).rejects.toMatchObject({
-      failure: { kind: "problem", httpStatus: 429, retryAfterMs: 120_000 },
+    await advance(44_999);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await advance(1);
+
+    await expect(pending).resolves.toEqual({ data: "ok" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the two-retry limit when Retry-After is used", async () => {
+    const fetchMock = mockFetch(
+      problemResponse(429, { "retry-after": "60" }),
+      problemResponse(429, { "retry-after": "120" }),
+      problemResponse(429, { "retry-after": "180" }),
+      jsonResponse({ data: "never reached" }),
+    );
+    const settled = createTransport(fetchMock)
+      .request(request)
+      .catch((error: unknown) => error);
+
+    await advance(60_000);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await advance(120_000);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    const error = await settled;
+    await advance(300_000);
+
+    expect(error).toMatchObject({
+      failure: { kind: "problem", httpStatus: 429, retryAfterMs: 180_000 },
     });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("stops waiting when the caller cancels during a long Retry-After", async () => {
+    const fetchMock = mockFetch(
+      problemResponse(429, { "retry-after": "120" }),
+      jsonResponse({ data: "ok" }),
+    );
+    const controller = new AbortController();
+    const settled = createTransport(fetchMock)
+      .request({ ...request, signal: controller.signal })
+      .catch((error: unknown) => error);
+
+    await advance(30_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    controller.abort();
+
+    await expect(settled).resolves.toMatchObject({ failure: { kind: "cancelled" } });
+    expect(jest.getTimerCount()).toBe(0);
+    await advance(300_000);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

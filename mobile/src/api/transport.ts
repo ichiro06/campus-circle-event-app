@@ -9,8 +9,9 @@ export const DEFAULT_API_TIMEOUT_MS = 10_000;
 // docs/screen-flow.md 6: GET retries at most twice, after about 0.5s and 1.5s plus jitter.
 export const DEFAULT_RETRY_DELAYS_MS: readonly number[] = [500, 1_500];
 export const RETRY_JITTER_RATIO = 0.25;
-// A Retry-After longer than this is surfaced to the caller instead of being waited on silently.
-export const MAX_AUTOMATIC_RETRY_WAIT_MS = 10_000;
+// setTimeout stores its delay as a signed 32-bit integer; a larger value fires immediately.
+// This is a platform limit on the timer, not a Retry-After policy.
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 export const RETRYABLE_HTTP_STATUSES: readonly number[] = [429, 502, 503, 504];
 
 export type AccessTokenProvider = () => Promise<string | null>;
@@ -96,14 +97,14 @@ function getRetryWaitMs(
   failure: ApiFailure,
   baseDelayMs: number,
   random: () => number,
-): number | undefined {
+): number {
   const retryAfterMs =
     failure.kind === "problem" || failure.kind === "unexpectedResponse"
       ? failure.retryAfterMs
       : undefined;
 
   if (retryAfterMs !== undefined) {
-    return retryAfterMs > MAX_AUTOMATIC_RETRY_WAIT_MS ? undefined : retryAfterMs;
+    return Math.min(retryAfterMs, MAX_TIMER_DELAY_MS);
   }
 
   return Math.round(baseDelayMs * (1 + random() * RETRY_JITTER_RATIO));
@@ -355,13 +356,10 @@ export function createApiTransport({
             throw error;
           }
 
-          const waitMs = getRetryWaitMs(error.failure, baseDelayMs, random);
-
-          if (waitMs === undefined) {
-            throw error;
-          }
-
-          await waitBeforeRetry(waitMs, options.signal);
+          await waitBeforeRetry(
+            getRetryWaitMs(error.failure, baseDelayMs, random),
+            options.signal,
+          );
         }
       }
     },
