@@ -12,6 +12,7 @@
    - 正式構成: `docs/architecture.md`
    - 認証・認可: `docs/authentication.md`
    - 画面・通信状態: `docs/screen-flow.md`
+   - UI/UX実装・レビュー: `docs/ui-design-guidelines.md`
    - API契約: `docs/api-contract.md`
    - データ辞書・初期schema: `docs/data-dictionary.md`
    - 非機能要件: `docs/non-functional-requirements.md`
@@ -136,6 +137,7 @@ curl http://localhost:8000/api/events
 - `docs/requirements.md`: Notionの「第1回要件定義議事録」を同期した製品要件スナップショットと初期リリース範囲
 - `docs/architecture.md`: 正式採用する目標構成と現在との差
 - `docs/authentication.md`: 正式な認証・認可・運営者確認
+- `docs/ui-design-guidelines.md`: 将来のiOS/Android UI・UX実装とレビューの共通方針
 - `docs/decisions.md`: 採用・未確定・廃止を含む重要な決定履歴
 - `docs/requirements-progress.md`: 合意済み要件の反映状況と残作業
 - `docs/requirements-review-2026-08-21.md`: 要件の追加検討事項とnon-functional review
