@@ -1,7 +1,7 @@
 # 要件定義の進捗
 
-- 最終更新日: 2026-10-04
-- 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`のHome接続は`Home Contract / API Readiness Gate`通過後に進める
+- 最終更新日: 2026-10-05
+- 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`は公開read範囲に限りREADY_TO_START（Public Read API Readiness: PASS）。Personalized Home Contract、Home Production Ready、External Beta / Releaseは未決事項が残りBLOCKED（`docs/coding-readiness.md` 3.1）
 
 ## 1. 情報源
 
@@ -95,8 +95,13 @@
 ## 6. 次のwork
 
 1. `W3 Mobile Foundation`: COMPLETE。PR #22でmainへmerge済み（merge commit: `f019ab1`）。
-2. `Home Contract / API Readiness Gate`: Home正式要件のお気に入り数に基づく並び順に対し、Circle一覧APIの`sort=most_favorited`はbackendで実装済みである（`favoriteCount`のresponse公開、fraud検知、Home推薦は含まない）。favorite集計のmanager / service operator除外scopeとrole評価時点（A1）は2026-10-04のHuman Decision（FR-002・DEC-055 clarification）で確定済みである。most_favoritedのpre-implementation direct decisions（D1 account lifecycle、D2 fraud検知の段階導入、D3 `sort=most_favorited`の完全順序、D4 live keyset pagination）も同日のHuman Decision（DEC-061）で確定済み（RESOLVED）である。ただしA2、R1、R2、favoriteCountのAPI response公開（H10）、most_favoritedのNFR分類は未解決（UNRESOLVED）で、Home recommendationとHD-011全体はSTILL_BLOCKED、Gate全体は未通過である。fraud exclusionの具体仕様のrelease gate（Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前）はOPENである。
-3. Gate通過後、`W4 Public Circle Slice`として公開Circle一覧・詳細を両Simulatorで接続し、最小vertical sliceを完成させる。
+2. `Home Contract / API Readiness Gate`: 公開read範囲とPersonalized Home / Releaseの未決事項を混同しないよう、開発gate A〜Dへ分割した（`docs/coding-readiness.md` 3.1。W4 Entry Gate Audit結果の整理であり、製品仕様の新しいHuman Decisionではない）。Circle一覧APIの`sort=most_favorited`はbackendで実装済みである（`favoriteCount`のresponse公開、fraud検知、Home推薦は含まない）。favorite集計のmanager / service operator除外scopeとrole評価時点（A1）、most_favoritedのD1〜D4（DEC-061）は2026-10-04のHuman Decisionで確定済み（RESOLVED）である。
+   - A. Public Read API Readiness: **PASS**
+   - B. Personalized Home Contract Readiness: **BLOCKED**（A2、R1、R2、view signalに対するmanager / operator除外scopeが未決）
+   - C. Home Production Ready: **BLOCKED**（Gate Bに加え、fraud / abnormal signalの具体仕様が必要。DEC-061 D2のrelease gate、OPEN）
+   - D. External Beta / Release Readiness: **BLOCKED**（fraud具体仕様、most_favorited NFR分類、production-equivalent性能検証、外部project・identifier・store等、既存release security gates）
+   - 未決のまま: A2、R1、R2、view signalに対するmanager / operator除外scope、H10、most_favorited NFR分類はUNRESOLVED、cursor confidentialityはFOLLOWUP、性能follow-upとfraud具体仕様はOPEN。
+3. `W4 Public Circle Slice`: 公開read範囲に限りREADY_TO_START。未ログインHome（`sort=most_favorited`）、Search public list、Circle card、Circle detailを両Simulatorで接続する。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではなくpartial implementationとして扱い、personalized Home、view write、favorite write、interest scoring、決定的shuffle、fraud検知、manager / operator機能は含めない。
 4. `View Definition Gate`: View定義は正式文書間で未解決である。解決するまでcircle view write、view history behavior、viewをsignalとして使うrecommendation logicは実装しない。
 5. 外部projectが必要になる直前にowner・identifier・planを確定する。
 6. 認証・profile・favorite、manager審査の順でpermission test付き実装へ進む。Viewをsignalとして使うrecommendationはView Definition Gate解決後とする。

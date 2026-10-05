@@ -30,7 +30,7 @@ React Native / Expo、FastAPI、PostgreSQLというBefore構成は維持する�
 1. FastAPIへrequest ID、成功envelope、RFC 9457 errorの共通処理を追加する。（Work 1で完了）
 2. `app_private`の公開circle read repository / Pydantic modelと一覧・詳細endpointを実装する。（Work 2で完了）
 3. Expoへ4タブ、共通loading / empty / error / offline component、型付きAPI clientを追加する。（`W3 Mobile Foundation`: COMPLETE。PR #22でmainへmerge済み。merge commit: `f019ab1`）
-4. `Home Contract / API Readiness Gate`として、Home正式要件のお気に入り数に基づく並び順に必要な`most_favorited` capabilityを別Workで正式化・実装する。Circle一覧APIの`GET /api/v1/circles?sort=most_favorited`はbackendで実装済みである（DEC-061 D1〜D4。`favoriteCount`のresponse公開、fraud検知、Home推薦は含まない）。このGateを通過後、公開一覧・詳細のvertical sliceをiOS SimulatorとAndroid Emulatorで接続する。（`W4 Public Circle Slice`）なお、2026-10-04のHuman Decisionにより、favorite集計のmanager / service operator除外scopeとrole評価時点（A1: FR-002・DEC-055 clarification）、およびmost_favoritedのpre-implementation direct decisions（DEC-061: D1 account lifecycle、D2 fraud検知の段階導入、D3 `sort=most_favorited`の完全順序、D4 live keyset pagination）は確定した（RESOLVED）。ただしA2、R1、R2、favoriteCountのAPI response公開（H10）、most_favoritedのNFR分類は未解決（UNRESOLVED）、Home recommendationとHD-011全体は引き続きSTILL_BLOCKEDであり、このGate全体は未通過のままである。fraud / abnormal favorite exclusionの具体仕様は別Human Decisionで確定・実装するrelease gate（Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前）が残っている（OPEN）。
+4. `Home Contract / API Readiness Gate`は、公開read範囲とPersonalized Home / Releaseの未決事項を混同しないよう、開発gate A〜Dへ分割して扱う（3.1参照。製品仕様の新しいHuman Decisionではなく、既存のformal decisionsは変更しない）。Circle一覧APIの`GET /api/v1/circles?sort=most_favorited`はbackendで実装済みである（DEC-061 D1〜D4、PR #27。`favoriteCount`のresponse公開、fraud検知、Home推薦は含まない）。Gate A（Public Read API Readiness）はPASSであり、`W4 Public Circle Slice`（公開Circle一覧・詳細のvertical sliceをiOS SimulatorとAndroid Emulatorで接続する）は公開read範囲に限りREADY_TO_STARTである。Gate B（Personalized Home Contract Readiness）、Gate C（Home Production Ready）、Gate D（External Beta / Release Readiness）はBLOCKEDのままである。
 5. profile、interest、view、favorite、推薦を認証前提のsliceとして追加する。
 6. manager application、membership、revision、operator reviewをpermission matrix test付きで追加する。
 7. report、account deletion、監視、backup / restore rehearsalを整え、限定公開へ進む。
@@ -38,6 +38,50 @@ React Native / Expo、FastAPI、PostgreSQLというBefore構成は維持する�
 正式ORM mappingは各sliceで必要なtableから追加し、初回migrationと差分testを行う。prototypeの`public.circles` / `public.events`へ正式機能を積み上げない。
 
 View定義は正式文書間で未解決である。定義が解決するまで、circle view write、view history behavior、viewをsignalとして使うrecommendation logicは実装しない。この記録はGateだけを示し、閲覧元や計数条件を決定しない。
+
+### 3.1 Home Contract / API Readiness Gateの分割（開発gate）
+
+W4 Entry Gate Audit（基準: `main` `bdd252e`、PR #27 merge済み、main CI #44 SUCCESS）の結果に基づく、開発gateの整理である。製品仕様の新しいHuman Decisionではなく、FR-001、FR-002、FR-005、FR-013、DEC-055、DEC-061、API設計を変更しない。A2、R1、R2等の未決事項を確定するものでもない。W4開始前に必要な製品仕様上のHuman Decisionは0件である。
+
+| Gate | 対象 | 状態 |
+| --- | --- | --- |
+| A. Public Read API Readiness | 公開Circle list、公開Circle detail、`sort=most_favorited`、OpenAPI、generated mobile type、public read contract | **PASS** |
+| B. Personalized Home Contract Readiness | personalized recommendation、view signal、interest scoring、cold-start orchestration、決定的shuffle | **BLOCKED**（A2、R1、R2、view signalに対するmanager / operator除外scope） |
+| C. Home Production Ready | Gate Bに加え、fraud / abnormal signalの具体仕様 | **BLOCKED**（DEC-061 D2のrelease gateを維持） |
+| D. External Beta / Release Readiness | fraud具体仕様、most_favorited NFR分類、production-equivalent環境での性能検証、外部project・identifier・store等、既存release security gates | **BLOCKED** |
+
+`W4 Public Circle Slice`はGate Aを満たすため**READY_TO_START**である。ただし対象は公開read vertical sliceだけであり、Gate B〜Dの未決事項はW4 public readの開始・実装を止めない。
+
+#### W4で実装可能な範囲
+
+- Home: `GET /api/v1/circles?sort=most_favorited`（未ログインHome。viewもinterestもないため、cold-startの順序制御に依存しない）
+- Search: 既存の公開Circle list API（`q`、`newest`、`most_favorited`、既存固定enum filter）
+- Circle detail: `GET /api/v1/circles/{circleId}`
+- Mobile: Circle card、loading、empty、error、offline、retry、pagination、detail navigation、accessibility
+
+これはFR-001、FR-005、FR-017、FR-018の全体完了を意味しない。W4はpublic read slice / partial implementationとして扱う。
+
+- Retry: `docs/screen-flow.md` 6節で確定済みのGET retry（network error、timeout、429、502、503、504に限り最大2回、約0.5秒・1.5秒＋jitter、`Retry-After`優先）は、新仕様ではなく既存formal仕様の実装としてW4で必要である。
+- Offline: persistent offline cacheのstorage / NetInfo等は未整備である。W4ではloading、error、offline状態、画面memory上の直近成功data保持までを対象にできる。アプリ再起動をまたぐpersistent offline cacheをW4必須にするかは決めていない。
+- Search: 「おすすめ順」、popular tag導線、tag / category master endpoint依存UIは未実装 / deferredであり、W4で追加しない。
+
+#### W4で実装しないもの
+
+personalized Home、view write、favorite write、interest scoring、A2の決定的shuffle、R1、R2、fraud detection、manager / operator機能。`favoriteCount`をCircle responseとして公開せず、mobileでも表示しない。cursorはclient側でopaqueとして扱い、payloadを解釈しない。
+
+#### 未決事項の状態（本整理では解決しない）
+
+| 項目 | 状態 | 内容 |
+| --- | --- | --- |
+| A2 | UNRESOLVED | DEC-055の「user ID + JST date + filter」におけるfilterの意味。W4は決定的shuffleを実装しないためblockしない |
+| R1 | UNRESOLVED | FR-001には「閲覧データ数 = Homeのサークルカードからサークルページへ遷移した回数」の意味定義がある。一方、Search経由・deep link経由、実際のview write trigger、30分dedup前後どちらを5件判定に使うかは未決。W4はview writeを実装しない。`docs/data-dictionary.md`・`docs/screen-flow.md`の既存view write文言は本整理で修正しない |
+| R2 | UNRESOLVED | FR-001は「viewデータ5件未満 → favorite count順」、`docs/data-dictionary.md`は「interest scoreの後にfavorite count」と差がある。cold-start orchestrationはPersonalized Home実装前にHuman Decisionが必要。未ログインW4はviewもinterestもないため`sort=most_favorited`で実装できる |
+| viewに対するmanager / operator除外scope | UNRESOLVED | favorite集計のA1を横展開しない |
+| H10 | UNRESOLVED | `favoriteCount`のAPI response公開 |
+| cursor confidentiality | FOLLOWUP | cursorは署名のみで暗号化していない。W4 start blockerではない |
+| most_favorited NFR分類 | UNRESOLVED | GET p95 500ms／検索・書込みp95 800msのどちらか。正式な受入閾値は決めていない |
+| 性能follow-up | OPEN | W4開発開始・public read実装は止めない。external beta / release前に、production-equivalent環境で正式dataset + concurrencyの再測定が必要 |
+| fraud具体仕様 | OPEN | W4 public read start blockerではない。Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前に必要（DEC-061 D2を維持） |
 
 ## 4. 現在ユーザー操作・外部契約が必要な事項
 
@@ -54,6 +98,7 @@ View定義は正式文書間で未解決である。定義が解決するまで�
 ## 5. 現在着手してよい範囲
 
 - `app_private`初回migrationを基準とする公開circle read model / repository / endpointの保守・拡張
+- `W4 Public Circle Slice`の公開read範囲（3.1。Gate A PASS）。personalized Home、view write、favorite write等は含まない
 - `/api/v1`共通response、error、request ID、cursor helperとtest
 - Expo Routerの4タブ・公開詳細・認証route shell
 - loading、empty、error、offline bannerとaccessibility test
