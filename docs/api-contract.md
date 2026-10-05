@@ -2,7 +2,7 @@
 
 - 状態: 正式仕様
 - 決定日: 2026-09-15
-- 最終更新日: 2026-09-19
+- 最終更新日: 2026-10-04
 - 対象: Expo製品clientとFastAPI製品API
 
 ## 1. 基本契約
@@ -135,6 +135,18 @@ sortは`newest`だけで、既定値も`newest`とする。正式順序は`circl
 
 cursorはversion、sort、最後の`publishedAt`とCircle ID、正規化filter、発行・失効時刻をcanonical JSONへ格納し、server環境変数`CURSOR_SIGNING_SECRET`の32 bytes以上の固定secretでHMAC-SHA-256署名したbase64url値とする。有効期限は24時間で、形式・base64・JSON・署名・version・filter・sort・必須payload・期限のいずれかが不正なら、理由を外部へ分けず`400 INVALID_CURSOR`を返す。secretをGitやclientへ置かず、processごとにrandom生成しない。
 
+### 4.2 `sort=most_favorited`（正式contract。未実装）
+
+2026-10-04のHuman Decision（DEC-061 D3・D4）で確定した`GET /api/v1/circles?sort=most_favorited`のcontractである。現行の実装・OpenAPIは4.1のとおり`newest`だけを受け付け、`most_favorited`は未実装である。
+
+- 完全順序: `favorite_count DESC, published_at DESC NULLS LAST, id DESC`。`favorite_count`はeligible favorite countで、定義はFR-002、DEC-055 clarification（A1）、DEC-061 D1による（favorite所有者が現在`active`なaccount、対象Circleの現在activeなmanagerと現在のservice operatorを除外）。同数時は新しく公開されたCircleを優先する。全Circleが0件のときは`published_at DESC NULLS LAST, id DESC`となり、`newest`と同じtie-break方向になる。
+- この順序は`sort=most_favorited`のCircle一覧専用である。ホーム推薦の上位10件のtie-break（score、お気に入り数、公開日時、UUID。`docs/data-dictionary.md`の推薦rule）とは別contractであり、同一のsort contractとして扱わない。
+- Pagination: live keyset paginationを採用する。cursorは少なくとも`favoriteCount`、`publishedAt`、`circleId`をsort keyとして含む。外部cursorはopaque、署名付き、sort bound、filter bound、24時間期限の既存contractを維持する。
+- 一貫性: snapshot rankingは保証しない。page取得の間にfavorite countが変動した場合、順位移動によるskipまたはduplicateを許容する。refresh / 明示的な再読み込み時は既存cursorを破棄して先頭から取得し直す。frozen ranking snapshot、ranking version、ranking変動によるcursor invalidationは初期実装で採用しない。
+- 未決: `favoriteCount`をAPI response fieldとして公開するか（H10）は決めていない。cursorが`favoriteCount`を内部のsort keyに含むことは、response fieldとしての公開を意味しない。OpenAPIの具体的な変更、most_favoritedのNFR分類、cache / preaggregationのfreshnessも未決である。
+- 不正signal除外: 初回のmost_favorited capabilityではfraud / abnormal favorite detectionを実装しない。具体仕様は別Human Decisionで確定し、Home推薦のproduction-ready扱い前またはexternal beta / production release開始前の早い方より前に実装する（release gate、状態: OPEN。DEC-061 D2）。
+- cursor payloadの機密性（現行codecの事実）: 現行の`SignedCircleCursorCodec`（`backend/circles/cursor.py`）はpayloadをcanonical JSONのbase64urlとしHMAC-SHA-256署名するだけで、暗号化しない。署名は改ざんを検出するが、payloadの内容はclientがbase64url decodeして読める。4の「clientは内容を解釈しない」はcontract上の取り決めであり、機密性を保証しない。`favoriteCount`をcursorへ含める場合の扱いは、H10との関係を含め別Human Decision候補であり、本contractでは暗号化・server-side cursor化を決めていない。
+
 ## 5. Idempotency
 
 次の重要なPOST・状態変更では`Idempotency-Key`を必須とする。
@@ -194,7 +206,7 @@ keyはclientが論理操作ごとに生成するUUIDで、同じ操作の再送�
 - OpenAPI JSONをCIで出力し、意図しないbreaking changeを検出する。
 - TypeScript clientはOpenAPIから生成し、生成結果をGit管理してPRで確認する。
 - 401 / 403 / 404の区別、他circle ID、他user ID、停止account、失効membershipを自動testする。
-- paginationは同点、追加・削除、cursor改ざん、期限切れをtestする。
+- paginationは同点、追加・削除、cursor改ざん、期限切れをtestする。`sort=most_favorited`の実装時は、同数時・全0件時の順序と、page間のfavorite count変動によるskip・duplicateを許容する挙動（4.2）も対象にする。
 - idempotencyは同一再送、payload相違、同時request、24時間後をtestする。
 
 ## 10. 参考資料

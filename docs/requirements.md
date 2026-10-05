@@ -91,6 +91,10 @@ Notionページに記載がない技術・運用上の詳細は、ページの�
 
 公開人気およびmost_favoritedのfavorite集計では、対象サークルに対して現在activeな管理者による当該サークルへのfavoriteだけを除外し、現在サービス運営者であるアカウントのfavoriteは全サークルで除外する（2026-10-04 Human Decision、FR-002・DEC-055 clarification）。管理者・運営者の判定はfavorite登録時点ではなくランキング集計時点の現在のroleで行い、他サークルの管理者が担当外サークルへ行った通常のfavoriteは、別の除外条件に該当しない限り集計する。閲覧等favorite以外のsignalにおける管理者・運営者の除外scopeは未決（要Human Decision）であり、このfavoriteの規則を横展開しない。
 
+favorite集計のeligible条件は、favoriteの所有者が現在activeなアカウントであることとする。停止中（suspended）、削除受付中（deletion_pending）、削除済み（deleted）のアカウントのfavoriteは集計しない。deletion_pendingになった時点から、削除処理の完了前でも公開人気のsignalとして使用しない。アカウントを物理削除する場合は、現行schemaの`ON DELETE CASCADE`によりfavoriteも物理削除し、favoriteを匿名化して保持する方式は初期実装では採用しない（2026-10-04 Human Decision、DEC-061 D1）。上記の管理者・運営者の除外は、このeligible条件に加えて別途適用する。
+
+不正・異常なfavoriteを公開人気から除外する原則は維持するが、初回のmost_favorited capabilityでは検知を実装しない。具体仕様（検知rule、閾値、観測window、event / data source、除外期間、解除条件、保存期間、query / write-pathの責任境界）は別Human Decisionで確定する。Home推薦をproduction-readyとして完了扱いする前、またはexternal beta / production releaseを開始する前のどちらか早い時点より前に、確定・実装することをrelease gateとする（DEC-061 D2。状態: OPEN）。1日あたりのfavorite toggle回数や除外時間などの候補値は、正式な閾値として採用していない。
+
 ### 6.2 サークル検索
 
 - 未ログイン利用者を含むすべてのユーザーが公開サークルを検索・閲覧できる。
@@ -138,6 +142,8 @@ Notionページに記載がない技術・運用上の詳細は、ページの�
 - おすすめ順
 - 新着順
 - お気に入り数順
+
+お気に入り数順（`sort=most_favorited`）の完全順序は、eligible favorite count降順、`published_at`降順（NULLS LAST）、circle id降順とする。同数のときは新しく公開されたCircleを優先し、全Circleが0件のときも同じ順序で一意に決まる（2026-10-04 Human Decision、DEC-061 D3）。この順序はサークル一覧の`sort=most_favorited`専用であり、ホーム推薦の上位10件のtie-break（6.1）は変更しない。追加読み込みはlive keyset paginationとし、snapshot一貫性は保証しない。page取得の間にfavorite countが変動した場合、順位移動によるskipまたはduplicateを許容し、再読み込み時は先頭から取得し直す（DEC-061 D4）。favoriteCountを画面・API responseのfieldとして公開するかは未決（H10）である。
 
 ### 6.3 サークルカード
 
