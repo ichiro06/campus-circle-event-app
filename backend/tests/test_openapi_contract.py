@@ -113,3 +113,20 @@ def test_runtime_formal_subset_matches_the_contract_schema() -> None:
 
 def test_committed_openapi_snapshot_is_current() -> None:
     assert OPENAPI_SNAPSHOT.read_text(encoding="utf-8") == render_openapi_schema()
+
+
+def test_most_favorited_is_a_sort_value_and_exposes_no_favorite_count_field() -> None:
+    schema = build_contract_schema()
+    schemas = schema["components"]["schemas"]
+
+    assert schemas["CircleSort"]["enum"] == ["newest", "most_favorited"]
+    sort_parameter = next(
+        parameter
+        for parameter in schema["paths"]["/api/v1/circles"]["get"]["parameters"]
+        if parameter["name"] == "sort"
+    )
+    assert sort_parameter["schema"]["default"] == "newest"
+
+    # H10 (publishing favoriteCount as a response field) is undecided.
+    assert "favoriteCount" not in json.dumps(schema)
+    assert "favorite_count" not in json.dumps(schema)

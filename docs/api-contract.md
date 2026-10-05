@@ -131,13 +131,13 @@ Work 2の正式な公開read endpointは次の2つである。データ源はPos
 
 `q`はtrim後の1つのliteral substringとして、display name、headline、summary、description、大学名、campus名、tag名、活動場所の都道府県・市区町村・施設名・最寄駅・公開noteを検索する。`%`と`_`はwildcardではなくliteralとしてescapeし、空白だけの明示的な`q`は`422 VALIDATION_ERROR`とする。日本語形態素解析、かな正規化、類義語、relevance rankingは行わない。
 
-sortは`newest`だけで、既定値も`newest`とする。正式順序は`circle_revisions.published_at DESC NULLS LAST, circles.id DESC`である。Circle一覧の`page`だけは共通fieldに必須の`totalCount`を加え、cursor適用前の現在時点における公開条件・filter一致総数を返す。snapshot countではない。
+sortは`newest`と`most_favorited`で、既定値は`newest`とする。`newest`の正式順序は`circle_revisions.published_at DESC NULLS LAST, circles.id DESC`である。`most_favorited`の順序とcursorは4.2に定める。Circle一覧の`page`だけは共通fieldに必須の`totalCount`を加え、cursor適用前の現在時点における公開条件・filter一致総数を返す。snapshot countではない。
 
-cursorはversion、sort、最後の`publishedAt`とCircle ID、正規化filter、発行・失効時刻をcanonical JSONへ格納し、server環境変数`CURSOR_SIGNING_SECRET`の32 bytes以上の固定secretでHMAC-SHA-256署名したbase64url値とする。有効期限は24時間で、形式・base64・JSON・署名・version・filter・sort・必須payload・期限のいずれかが不正なら、理由を外部へ分けず`400 INVALID_CURSOR`を返す。secretをGitやclientへ置かず、processごとにrandom生成しない。
+cursorはversion、sort、最後の`publishedAt`とCircle ID（`most_favorited`ではさらに最後のeligible favorite count）、正規化filter、発行・失効時刻をcanonical JSONへ格納し、server環境変数`CURSOR_SIGNING_SECRET`の32 bytes以上の固定secretでHMAC-SHA-256署名したbase64url値とする。有効期限は24時間で、形式・base64・JSON・署名・version・filter・sort・必須payload・期限のいずれかが不正なら、理由を外部へ分けず`400 INVALID_CURSOR`を返す。secretをGitやclientへ置かず、processごとにrandom生成しない。
 
-### 4.2 `sort=most_favorited`（正式contract。未実装）
+### 4.2 `sort=most_favorited`
 
-2026-10-04のHuman Decision（DEC-061 D3・D4）で確定した`GET /api/v1/circles?sort=most_favorited`のcontractである。現行の実装・OpenAPIは4.1のとおり`newest`だけを受け付け、`most_favorited`は未実装である。
+2026-10-04のHuman Decision（DEC-061 D3・D4）で確定した`GET /api/v1/circles?sort=most_favorited`のcontractである。backendは`sort=most_favorited`を実装済みで、OpenAPIの`CircleSort`へ値を追加した。response itemとOpenAPI response schemaに`favoriteCount`は追加していない。favorite countはeligible条件（FR-002、DEC-055 clarification、DEC-061 D1）を満たすfavoriteだけを、query実行時にSQLで集計する。fraud / abnormal favorite detectionは実装していない（D2）。
 
 - 完全順序: `favorite_count DESC, published_at DESC NULLS LAST, id DESC`。`favorite_count`はeligible favorite countで、定義はFR-002、DEC-055 clarification（A1）、DEC-061 D1による（favorite所有者が現在`active`なaccount、対象Circleの現在activeなmanagerと現在のservice operatorを除外）。同数時は新しく公開されたCircleを優先する。全Circleが0件のときは`published_at DESC NULLS LAST, id DESC`となり、`newest`と同じtie-break方向になる。
 - この順序は`sort=most_favorited`のCircle一覧専用である。ホーム推薦の上位10件のtie-break（score、お気に入り数、公開日時、UUID。`docs/data-dictionary.md`の推薦rule）とは別contractであり、同一のsort contractとして扱わない。

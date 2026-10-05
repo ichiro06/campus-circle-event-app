@@ -10,7 +10,7 @@ from api.errors import InvalidCursorError
 from api.models import PageMetadata
 from app_private.models import ProductBase
 from circles.cursor import SignedCircleCursorCodec
-from circles.repository import CirclePage, PagePosition
+from circles.repository import CirclePage, CircleRepository, PagePosition
 from circles.schemas import CircleListQuery, CirclePageMetadata
 from circles.service import CircleReadService
 from database import Base
@@ -123,3 +123,110 @@ def test_service_accepts_a_valid_nullable_sort_position() -> None:
     assert result.data == []
     assert result.page.total_count == 0
     assert repository.after == PagePosition(published_at=None, circle_id=UUID(int=10))
+
+
+class RecordingMostFavoritedRepository:
+    def __init__(self) -> None:
+        self.after: PagePosition | None = None
+        self.calls = 0
+
+    def list_public_most_favorited(self, *, filters, after, limit: int) -> CirclePage:
+        self.calls += 1
+        self.after = after
+        return CirclePage(records=[], has_more=False, total_count=0)
+
+
+def _most_favorited_service() -> tuple[CircleReadService, RecordingMostFavoritedRepository]:
+    service = CircleReadService(
+        cast(Session, None), SignedCircleCursorCodec(TEST_SECRET, clock=lambda: NOW)
+    )
+    repository = RecordingMostFavoritedRepository()
+    service._repository = repository  # type: ignore[assignment]
+    return service, repository
+
+
+def test_most_favorited_sort_is_accepted_and_newest_stays_the_default() -> None:
+    assert CircleListQuery().sort == "newest"
+    assert CircleListQuery(sort="newest").sort == "newest"
+    assert CircleListQuery(sort="most_favorited").sort == "most_favorited"
+
+
+def test_service_accepts_a_most_favorited_cursor_and_restores_all_three_sort_keys() -> None:
+    service, repository = _most_favorited_service()
+    published_at = datetime(2026, 9, 18, 12, tzinfo=UTC)
+    query = CircleListQuery(sort="most_favorited")
+    cursor = SignedCircleCursorCodec(TEST_SECRET, clock=lambda: NOW).encode(
+        sort="most_favorited",
+        last_favorite_count=4,
+        last_published_at=published_at,
+        last_circle_id=UUID(int=10),
+        filters=query.normalized_filters().cursor_binding(),
+    )
+
+    service.list_public(CircleListQuery(sort="most_favorited", cursor=cursor))
+
+    assert repository.after == PagePosition(
+        published_at=published_at, circle_id=UUID(int=10), favorite_count=4
+    )
+
+
+def test_service_rejects_a_newest_cursor_for_most_favorited_before_querying() -> None:
+    service, repository = _most_favorited_service()
+    codec = SignedCircleCursorCodec(TEST_SECRET, clock=lambda: NOW)
+    cursor = codec.encode(
+        last_published_at=None,
+        last_circle_id=UUID(int=10),
+        filters=CircleListQuery().normalized_filters().cursor_binding(),
+    )
+
+    with pytest.raises(InvalidCursorError):
+        service.list_public(CircleListQuery(sort="most_favorited", cursor=cursor))
+    assert repository.calls == 0
+
+
+def test_service_rejects_a_most_favorited_cursor_for_newest_before_querying() -> None:
+    codec = SignedCircleCursorCodec(TEST_SECRET, clock=lambda: NOW)
+    cursor = codec.encode(
+        sort="most_favorited",
+        last_favorite_count=1,
+        last_published_at=None,
+        last_circle_id=UUID(int=10),
+        filters=CircleListQuery().normalized_filters().cursor_binding(),
+    )
+    service = CircleReadService(cast(Session, None), codec)
+    repository = RecordingRepository()
+    service._repository = repository  # type: ignore[assignment]
+
+    with pytest.raises(InvalidCursorError):
+        service.list_public(CircleListQuery(sort="newest", cursor=cursor))
+    assert repository.after is None
+
+
+def test_service_rejects_a_most_favorited_cursor_bound_to_other_filters() -> None:
+    service, repository = _most_favorited_service()
+    codec = SignedCircleCursorCodec(TEST_SECRET, clock=lambda: NOW)
+    cursor = codec.encode(
+        sort="most_favorited",
+        last_favorite_count=1,
+        last_published_at=None,
+        last_circle_id=UUID(int=10),
+        filters=CircleListQuery(official_status=["official"]).normalized_filters().cursor_binding(),
+    )
+
+    with pytest.raises(InvalidCursorError):
+        service.list_public(
+            CircleListQuery(sort="most_favorited", cursor=cursor, official_status=["unofficial"])
+        )
+    assert repository.calls == 0
+
+
+def test_the_keyset_position_for_most_favorited_requires_a_favorite_count() -> None:
+    filters = CircleListQuery().normalized_filters()
+    repository = CircleRepository(cast(Session, None))
+
+    with pytest.raises(ValueError):
+        repository.build_most_favorited_statement(
+            filters=filters,
+            after=PagePosition(published_at=None, circle_id=UUID(int=1)),
+            limit=21,
+        )

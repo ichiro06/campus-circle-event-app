@@ -628,7 +628,8 @@
       },
       "CircleSort": {
         "enum": [
-          "newest"
+          "newest",
+          "most_favorited"
         ],
         "title": "CircleSort",
         "type": "string"
