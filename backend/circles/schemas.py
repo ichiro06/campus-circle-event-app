@@ -106,6 +106,7 @@ class CostType(StrEnum):
 
 class CircleSort(StrEnum):
     newest = "newest"
+    most_favorited = "most_favorited"
 
 
 def _normalized_values(values: list[StrEnum]) -> tuple[str, ...]:

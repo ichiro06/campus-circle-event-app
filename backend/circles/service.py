@@ -16,6 +16,7 @@ from circles.schemas import (
     CircleListItem,
     CircleListQuery,
     CirclePageMetadata,
+    CircleSort,
     FeaturedTagRead,
     TagRead,
     UniversityRead,
@@ -36,12 +37,21 @@ class CircleReadService:
 
     def list_public(self, query: CircleListQuery) -> CircleListResult:
         filters = query.normalized_filters()
-        position = self._validate_cursor(query.cursor, filters) if query.cursor else None
-        result = self._repository.list_public(
-            filters=filters,
-            after=position,
-            limit=query.limit,
+        position = (
+            self._validate_cursor(query.cursor, filters, query.sort) if query.cursor else None
         )
+        if query.sort is CircleSort.most_favorited:
+            result = self._repository.list_public_most_favorited(
+                filters=filters,
+                after=position,
+                limit=query.limit,
+            )
+        else:
+            result = self._repository.list_public(
+                filters=filters,
+                after=position,
+                limit=query.limit,
+            )
         next_cursor = None
         if result.has_more:
             last_record = result.records[-1]
@@ -49,6 +59,8 @@ class CircleReadService:
                 last_published_at=last_record.published_at,
                 last_circle_id=last_record.id,
                 filters=filters.cursor_binding(),
+                sort=query.sort.value,
+                last_favorite_count=result.last_favorite_count,
             )
         return CircleListResult(
             data=[self._list_item(record) for record in result.records],
@@ -102,13 +114,15 @@ class CircleReadService:
         self,
         cursor: str,
         filters: CircleFilters,
+        sort: CircleSort,
     ) -> PagePosition:
         payload = self._cursor_codec.decode(cursor)
-        if payload.sort != "newest" or payload.filters != filters.cursor_binding():
+        if payload.sort != sort.value or payload.filters != filters.cursor_binding():
             raise InvalidCursorError()
         return PagePosition(
             published_at=payload.last_published_at,
             circle_id=payload.last_circle_id,
+            favorite_count=payload.last_favorite_count,
         )
 
     @staticmethod

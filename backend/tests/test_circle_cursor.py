@@ -167,3 +167,142 @@ def test_cursor_secret_is_required_and_must_be_long_enough(monkeypatch: pytest.M
     configured = "x" * 32
     monkeypatch.setenv(CURSOR_SECRET_ENV, configured)
     assert load_cursor_signing_secret() == configured.encode()
+
+
+def test_most_favorited_cursor_round_trip_carries_the_favorite_count_sort_key() -> None:
+    circle_id = uuid4()
+    published_at = datetime(2026, 9, 18, 12, 30, tzinfo=UTC)
+    cursor = _codec().encode(
+        sort="most_favorited",
+        last_favorite_count=7,
+        last_published_at=published_at,
+        last_circle_id=circle_id,
+        filters=FILTERS,
+    )
+
+    payload = _codec().decode(cursor)
+    assert payload.version == 1
+    assert payload.sort == "most_favorited"
+    assert payload.last_favorite_count == 7
+    assert payload.last_published_at == published_at
+    assert payload.last_circle_id == circle_id
+    assert payload.filters == FILTERS
+    assert payload.expires_at - payload.issued_at == CURSOR_TTL_SECONDS
+
+
+def test_most_favorited_cursor_accepts_zero_favorites_and_a_null_publication_time() -> None:
+    cursor = _codec().encode(
+        sort="most_favorited",
+        last_favorite_count=0,
+        last_published_at=None,
+        last_circle_id=uuid4(),
+        filters=FILTERS,
+    )
+
+    payload = _codec().decode(cursor)
+    assert payload.last_favorite_count == 0
+    assert payload.last_published_at is None
+
+
+def _payload_of(cursor: str) -> dict[str, object]:
+    encoded, _signature = cursor.split(".")
+    padded = encoded + "=" * (-len(encoded) % 4)
+    return json.loads(base64.urlsafe_b64decode(padded))
+
+
+def test_newest_cursor_payload_is_unchanged_by_the_most_favorited_sort() -> None:
+    cursor = _codec().encode(
+        last_published_at=None,
+        last_circle_id=UUID(int=1),
+        filters=FILTERS,
+    )
+
+    assert _payload_of(cursor) == {
+        "version": 1,
+        "sort": "newest",
+        "lastPublishedAt": None,
+        "lastCircleId": str(UUID(int=1)),
+        "filters": FILTERS,
+        "issuedAt": int(ISSUED_AT.timestamp()),
+        "expiresAt": int(ISSUED_AT.timestamp()) + CURSOR_TTL_SECONDS,
+    }
+
+
+def test_cursor_signed_before_most_favorited_existed_is_still_accepted() -> None:
+    legacy = _signed_raw_cursor(
+        {
+            "version": 1,
+            "sort": "newest",
+            "lastPublishedAt": "2026-09-18T12:30:00Z",
+            "lastCircleId": str(UUID(int=5)),
+            "filters": FILTERS,
+            "issuedAt": int(ISSUED_AT.timestamp()),
+            "expiresAt": int(ISSUED_AT.timestamp()) + CURSOR_TTL_SECONDS,
+        }
+    )
+
+    payload = _codec().decode(legacy)
+    assert payload.sort == "newest"
+    assert payload.last_favorite_count is None
+
+
+def test_cursor_payload_is_signed_but_not_encrypted() -> None:
+    """Records the known CURSOR_CONFIDENTIALITY_FOLLOWUP: the payload is readable."""
+
+    cursor = _codec().encode(
+        sort="most_favorited",
+        last_favorite_count=3,
+        last_published_at=None,
+        last_circle_id=UUID(int=9),
+        filters=FILTERS,
+    )
+
+    assert _payload_of(cursor)["lastFavoriteCount"] == 3
+
+
+@pytest.mark.parametrize(
+    "payload_update",
+    [
+        {"sort": "most_favorited"},
+        {"sort": "most_favorited", "lastFavoriteCount": None},
+        {"sort": "most_favorited", "lastFavoriteCount": -1},
+        {"sort": "most_favorited", "lastFavoriteCount": 2**63},
+        {"sort": "most_favorited", "lastFavoriteCount": "3"},
+        {"sort": "most_favorited", "lastFavoriteCount": 1.5},
+        {"sort": "newest", "lastFavoriteCount": 3},
+        {"sort": "newest", "lastFavoriteCount": 0},
+    ],
+)
+def test_cursor_payload_shape_must_match_its_sort(payload_update: dict[str, object]) -> None:
+    payload: dict[str, object] = {
+        "version": 1,
+        "sort": "newest",
+        "lastPublishedAt": None,
+        "lastCircleId": str(UUID(int=1)),
+        "filters": FILTERS,
+        "issuedAt": int(ISSUED_AT.timestamp()),
+        "expiresAt": int(ISSUED_AT.timestamp()) + CURSOR_TTL_SECONDS,
+    }
+    payload.update(payload_update)
+
+    with pytest.raises(InvalidCursorError):
+        _codec().decode(_signed_raw_cursor(payload))
+
+
+def test_encoding_rejects_a_payload_whose_shape_does_not_match_its_sort() -> None:
+    with pytest.raises(ValueError):
+        _codec().encode(
+            sort="most_favorited",
+            last_favorite_count=None,
+            last_published_at=None,
+            last_circle_id=uuid4(),
+            filters=FILTERS,
+        )
+    with pytest.raises(ValueError):
+        _codec().encode(
+            sort="newest",
+            last_favorite_count=1,
+            last_published_at=None,
+            last_circle_id=uuid4(),
+            filters=FILTERS,
+        )

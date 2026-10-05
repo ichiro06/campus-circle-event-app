@@ -204,3 +204,59 @@ class CircleCost(ProductBase):
     label: Mapped[str] = mapped_column(String(80), nullable=False)
     note: Mapped[str | None] = mapped_column(String(300), nullable=True)
     display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+
+
+class Account(ProductBase):
+    __tablename__ = "accounts"
+    __table_args__ = {"schema": SCHEMA}
+
+    id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), primary_key=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+
+
+class Favorite(ProductBase):
+    __tablename__ = "favorites"
+    __table_args__ = {"schema": SCHEMA}
+
+    user_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey(f"{SCHEMA}.accounts.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    circle_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey(f"{SCHEMA}.circles.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+
+class CircleMembership(ProductBase):
+    __tablename__ = "circle_memberships"
+    __table_args__ = {"schema": SCHEMA}
+
+    id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey(f"{SCHEMA}.accounts.id"),
+        nullable=False,
+    )
+    circle_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey(f"{SCHEMA}.circles.id"),
+        nullable=False,
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+
+
+class ServiceOperator(ProductBase):
+    __tablename__ = "service_operators"
+    __table_args__ = {"schema": SCHEMA}
+
+    user_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey(f"{SCHEMA}.accounts.id"),
+        primary_key=True,
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    grant_reason: Mapped[str] = mapped_column(Text, nullable=False)

@@ -2,20 +2,25 @@ from dataclasses import dataclass, field
 from datetime import datetime, time
 from uuid import UUID
 
-from sqlalchemy import Select, and_, func, literal, or_, select
+from sqlalchemy import Select, and_, func, literal, not_, or_, select, true
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.selectable import Lateral
 
 from app_private.models import (
+    Account,
     ActivityLocation,
     ActivitySchedule,
     Campus,
     Category,
     Circle,
     CircleCost,
+    CircleMembership,
     CircleRevision,
     CircleRevisionTag,
     CircleUniversity,
+    Favorite,
+    ServiceOperator,
     Tag,
     University,
 )
@@ -26,6 +31,8 @@ from circles.schemas import CircleFilters
 class PagePosition:
     published_at: datetime | None
     circle_id: UUID
+    # Only set for sort=most_favorited: the eligible favorite count of the last row.
+    favorite_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +122,9 @@ class CirclePage:
     records: list[CircleRecord]
     has_more: bool
     total_count: int
+    # Only set for sort=most_favorited: kept out of CircleRecord so that the count
+    # can feed the next cursor without becoming part of any response model (H10).
+    last_favorite_count: int | None = None
 
 
 def _escaped_like_pattern(value: str) -> str:
@@ -132,6 +142,50 @@ def public_visibility_predicates() -> tuple[ColumnElement[bool], ...]:
         CircleRevision.id == Circle.published_revision_id,
         CircleRevision.circle_id == Circle.id,
         CircleRevision.status == "published",
+    )
+
+
+def eligible_favorite_count_lateral() -> Lateral:
+    """Per-Circle count of eligible favorites, evaluated at query time.
+
+    Eligible = the owner is a currently ``active`` account (DEC-061 D1), is not a
+    currently active manager of this same Circle, and is not a currently active
+    service operator (DEC-055 clarification A1). Roles are read from the live
+    tables, never from the time the favorite was created. Fraud detection is
+    intentionally absent (DEC-061 D2).
+    """
+
+    same_circle_manager = (
+        select(literal(1))
+        .select_from(CircleMembership)
+        .where(
+            CircleMembership.user_id == Favorite.user_id,
+            CircleMembership.circle_id == Favorite.circle_id,
+            CircleMembership.role == "manager",
+            CircleMembership.status == "active",
+        )
+        .exists()
+    )
+    service_operator = (
+        select(literal(1))
+        .select_from(ServiceOperator)
+        .where(
+            ServiceOperator.user_id == Favorite.user_id,
+            ServiceOperator.status == "active",
+        )
+        .exists()
+    )
+    return (
+        select(func.count().label("favorite_count"))
+        .select_from(Favorite)
+        .join(Account, Account.id == Favorite.user_id)
+        .where(
+            Favorite.circle_id == Circle.id,
+            Account.status == "active",
+            not_(same_circle_manager),
+            not_(service_operator),
+        )
+        .lateral("eligible_favorites")
     )
 
 
@@ -155,6 +209,34 @@ class CircleRepository:
         has_more = len(rows) > limit
         records = self._hydrate(rows[:limit], include_detail=False)
         return CirclePage(records=records, has_more=has_more, total_count=total_count)
+
+    def list_public_most_favorited(
+        self,
+        *,
+        filters: CircleFilters,
+        after: PagePosition | None,
+        limit: int,
+    ) -> CirclePage:
+        """List public Circles ordered by eligible favorite count (DEC-061 D3).
+
+        Live keyset pagination: counts are evaluated at query time and no snapshot
+        is kept, so rank changes between pages may skip or repeat a Circle (D4).
+        """
+
+        total_count = int(self._session.scalar(self.build_count_statement(filters)) or 0)
+        rows = list(
+            self._session.execute(
+                self.build_most_favorited_statement(filters=filters, after=after, limit=limit + 1)
+            ).mappings()
+        )
+        has_more = len(rows) > limit
+        page_rows = rows[:limit]
+        return CirclePage(
+            records=self._hydrate(page_rows, include_detail=False),
+            has_more=has_more,
+            total_count=total_count,
+            last_favorite_count=int(page_rows[-1]["favorite_count"]) if page_rows else None,
+        )
 
     def get_public(self, circle_id: UUID) -> CircleRecord | None:
         statement = self._base_statement().where(
@@ -189,6 +271,40 @@ class CircleRepository:
             self._base_statement()
             .where(*predicates)
             .order_by(CircleRevision.published_at.desc().nulls_last(), Circle.id.desc())
+            .limit(limit)
+        )
+
+    def build_most_favorited_statement(
+        self,
+        *,
+        filters: CircleFilters,
+        after: PagePosition | None,
+        limit: int,
+    ) -> Select:
+        eligible = eligible_favorite_count_lateral()
+        predicates = [*public_visibility_predicates(), *self._filter_predicates(filters)]
+        if after is not None:
+            if after.favorite_count is None:
+                raise ValueError("a most_favorited position requires a favorite count")
+            predicates.append(
+                or_(
+                    eligible.c.favorite_count < after.favorite_count,
+                    and_(
+                        eligible.c.favorite_count == after.favorite_count,
+                        self._keyset_predicate(after),
+                    ),
+                )
+            )
+        return (
+            self._base_statement()
+            .add_columns(eligible.c.favorite_count)
+            .join(eligible, true())
+            .where(*predicates)
+            .order_by(
+                eligible.c.favorite_count.desc(),
+                CircleRevision.published_at.desc().nulls_last(),
+                Circle.id.desc(),
+            )
             .limit(limit)
         )
 

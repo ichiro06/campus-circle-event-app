@@ -195,7 +195,7 @@ export interface components {
      * CircleSort
      * @enum {string}
      */
-    CircleSort: "newest";
+    CircleSort: "newest" | "most_favorited";
     /**
      * CircleType
      * @enum {string}

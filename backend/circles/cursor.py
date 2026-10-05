@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import ValidationError
+from pydantic import Field, ValidationError, model_validator
 
 from api.errors import InvalidCursorError
 from api.models import ApiModel, UtcDateTime
@@ -18,16 +18,35 @@ CURSOR_SECRET_ENV = "CURSOR_SIGNING_SECRET"
 CURSOR_TTL_SECONDS = 24 * 60 * 60
 CURSOR_VERSION = 1
 MINIMUM_SECRET_BYTES = 32
+MAX_FAVORITE_COUNT = 2**63 - 1
+
+CursorSort = Literal["newest", "most_favorited"]
 
 
 class CircleCursorPayload(ApiModel):
+    """Signed (not encrypted) keyset position bound to a sort and a filter set.
+
+    ``newest`` positions carry ``last_published_at`` and ``last_circle_id``.
+    ``most_favorited`` positions additionally carry ``last_favorite_count``,
+    the eligible favorite count of the last returned Circle (DEC-061 D4).
+    """
+
     version: Literal[1]
-    sort: Literal["newest"]
+    sort: CursorSort
+    last_favorite_count: int | None = Field(default=None, ge=0, le=MAX_FAVORITE_COUNT, strict=True)
     last_published_at: UtcDateTime | None
     last_circle_id: UUID
     filters: dict[str, str | list[str] | None]
     issued_at: int
     expires_at: int
+
+    @model_validator(mode="after")
+    def favorite_count_matches_sort(self) -> "CircleCursorPayload":
+        if (self.sort == "most_favorited") != (self.last_favorite_count is not None):
+            raise ValueError(
+                "last_favorite_count must be present if and only if sorting by favorites"
+            )
+        return self
 
 
 def load_cursor_signing_secret() -> bytes:
@@ -80,6 +99,8 @@ class SignedCircleCursorCodec:
         last_published_at: datetime | None,
         last_circle_id: UUID,
         filters: dict[str, str | list[str] | None],
+        sort: CursorSort = "newest",
+        last_favorite_count: int | None = None,
     ) -> str:
         now = self._clock()
         if now.tzinfo is None or now.utcoffset() is None:
@@ -87,15 +108,18 @@ class SignedCircleCursorCodec:
         issued_at = int(now.timestamp())
         payload = CircleCursorPayload(
             version=CURSOR_VERSION,
-            sort="newest",
+            sort=sort,
+            last_favorite_count=last_favorite_count,
             last_published_at=last_published_at,
             last_circle_id=last_circle_id,
             filters=filters,
             issued_at=issued_at,
             expires_at=issued_at + CURSOR_TTL_SECONDS,
         )
+        # Keep newest cursors byte-identical to those issued before most_favorited existed.
+        omitted = {"last_favorite_count"} if payload.last_favorite_count is None else None
         serialized = json.dumps(
-            payload.model_dump(mode="json"),
+            payload.model_dump(mode="json", exclude=omitted),
             ensure_ascii=False,
             separators=(",", ":"),
             sort_keys=True,
