@@ -35,6 +35,7 @@ function CircleCardView({ circle, onPress }: CircleCardProps) {
   const accessibilityLabel = [
     circle.displayName,
     circle.headline,
+    circle.summary,
     `${officialLabel}、${typeLabel}`,
     ...facts,
     tagLabels.length > 0 ? `タグ ${tagLabels.join("、")}` : null,

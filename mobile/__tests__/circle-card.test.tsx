@@ -66,6 +66,7 @@ describe("CircleCard", () => {
     const card = screen.getByRole("button");
 
     expect(card.props.accessibilityLabel).toContain("テストサークル1");
+    expect(card.props.accessibilityLabel).toContain("主な活動内容1");
     expect(card.props.accessibilityLabel).toContain("公認、サークル");
     expect(card.props.accessibilityLabel).toContain("法政大学 市ヶ谷");
     expect(card.props.accessibilityHint).toBe("サークルの詳細を開きます");
