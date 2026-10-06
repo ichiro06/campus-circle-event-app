@@ -1,6 +1,6 @@
 # 要件定義の進捗
 
-- 最終更新日: 2026-10-05
+- 最終更新日: 2026-10-06
 - 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`は公開read範囲の実装・検証が完了（public read slice COMPLETE。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではない）。Personalized Home Contract、Home Production Ready、External Beta / Releaseは未決事項が残りBLOCKED（`docs/coding-readiness.md` 3.1）
 
 ## 1. 情報源
@@ -31,7 +31,10 @@
 - 正式tableは`app_private` schema、UUID、UTC日時、JPY整数、`TEXT + CHECK`を使う。
 - 公開revisionと下書き・審査revisionを分離する。
 - category・tagは運営master、主categoryは1つ、tagは複数とする。
-- ratingは団体自己申告の5指標。男女比は任意区分で、個人genderを収集しない。
+- ratingは団体自己申告の5指標（integer 1～5、`null`は未回答）。男女比はcategorical value（`null`は未回答、`not_disclosed`は明示的な非公開で別状態）で、個人genderを収集しない（DEC-062、2026-10-06）。
+  - FR-017 rating contract（保持・表示仕様）: **RESOLVED**。ただしFR-017全体は**PARTIAL**のままであり、DEC-062の成立は全体完了ではない。
+  - 5 ratingの検索filter / sort / ranking利用: **UNRESOLVED**（別Human Decision）。男女比はcategorical filterとして扱う（具体仕様は未決）。
+  - 「仲の良さ」「初心者歓迎度」は初期ratingから除外。
 - 閲覧1点、お気に入り5点、興味3点。同一user・circleの閲覧は30分に1回。
 - 上位10件は安定sort、以降はuser・JST日付・filterで決定的shuffleとする。
 - 生年月日は初期収集しない。大学・学年は任意、閲覧履歴は明示操作後に最大20件または90日。
@@ -100,8 +103,8 @@
    - B. Personalized Home Contract Readiness: **BLOCKED**（A2、R1、R2、view signalに対するmanager / operator除外scopeが未決）
    - C. Home Production Ready: **BLOCKED**（Gate Bに加え、fraud / abnormal signalの具体仕様が必要。DEC-061 D2のrelease gate、OPEN）
    - D. External Beta / Release Readiness: **BLOCKED**（fraud具体仕様、most_favorited NFR分類、production-equivalent性能検証、外部project・identifier・store等、既存release security gates）
-   - 未決のまま: A2、R1、R2、view signalに対するmanager / operator除外scope、H10、most_favorited NFR分類はUNRESOLVED、cursor confidentialityはFOLLOWUP、性能follow-upとfraud具体仕様はOPEN。
-3. `W4 Public Circle Slice`: 公開read範囲の実装と、自動検証・iOS Simulator・Android Emulatorの主要flow確認が完了（COMPLETE。実装状況であり製品要件の承認ではない。VoiceOver実操作とTalkBackの読み上げ音声は未確認）。未ログインHome（`sort=most_favorited`）、Search public list、Circle card、Circle detailを両Simulatorで接続する。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではなくpartial implementationとして扱い、personalized Home、view write、favorite write、interest scoring、決定的shuffle、fraud検知、manager / operator機能は含めない。
+   - 未決のまま: A2、R1、R2、view signalに対するmanager / operator除外scope、H10、most_favorited NFR分類はUNRESOLVED、cursor confidentialityはFOLLOWUP、性能follow-upとfraud具体仕様はOPEN。5 ratingの検索filter / sort / rankingはUNRESOLVED（DEC-062で別Human Decisionへ分離）。
+3. `W4 Public Circle Slice`: 公開read範囲の実装と、自動検証・iOS Simulator・Android Emulatorの主要flow確認が完了（COMPLETE。実装状況であり製品要件の承認ではない。VoiceOver実操作とTalkBackの読み上げ音声は未確認）。未ログインHome（`sort=most_favorited`）、Search public list、Circle card、Circle detailを両Simulatorで接続する。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではなくpartial implementationとして扱い、personalized Home、view write、favorite write、interest scoring、決定的shuffle、fraud検知、manager / operator機能は含めない。DEC-062（2026-10-06）によるW4のrollbackはなく、W4 COMPLETEとFR-017全体PARTIALを維持する。
 4. `View Definition Gate`: View定義は正式文書間で未解決である。解決するまでcircle view write、view history behavior、viewをsignalとして使うrecommendation logicは実装しない。
 5. 外部projectが必要になる直前にowner・identifier・planを確定する。
 6. 認証・profile・favorite、manager審査の順でpermission test付き実装へ進む。Viewをsignalとして使うrecommendationはView Definition Gate解決後とする。

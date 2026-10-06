@@ -136,8 +136,8 @@ accountをphysical deleteした場合、`favorites.user_id`の`ON DELETE CASCADE
 | camp_frequency_code | TEXT | no | `none`, `once_year`, `twice_year`, `three_plus_year`, `unknown` |
 | activity_frequency_code | TEXT | no | `less_monthly`, `monthly`, `two_three_monthly`, `weekly`, `two_three_weekly`, `four_plus_weekly`, `irregular` |
 | annual_cost_min_yen / max_yen | INTEGER | no | 0以上、min <= max |
-| rating_* | SMALLINT | no | 後述の4指標とcareer。1～5 |
-| gender_balance_code | TEXT | no | 後述。個人genderは保持しない |
+| rating_* | SMALLINT | no | 後述の4指標とcareer。1～5。`NULL`は未回答（6節、DEC-062） |
+| gender_balance_code | TEXT | no | 後述。`NULL`は未回答、`not_disclosed`は明示的な非公開。個人genderは保持しない（6節、DEC-062） |
 | submitted_by_user_id | UUID | no | 審査提出者 |
 | submitted_at / reviewed_at / published_at | TIMESTAMPTZ | no | 状態に応じて記録 |
 | review_note | TEXT | no | managerへ返す理由。証拠原本を含めない |
@@ -181,7 +181,24 @@ revision単位で`service`（初期は`instagram`, `line`, `website`, `other`）
 
 飲み会は2=`年1～3回`、3=`月1回程度`、4=`月2～3回`とする。尺度は将来変更できるよう説明versionを保持する。
 
+上記の尺度表は2026-09-15時点の記述である。Notion FR-017では各段階の意味づけとUI最終文言が未確定として残っており、DEC-062（2026-10-06）はこれを確定していない（別Human Decision）。
+
 男女比は5段階scoreにしない。任意の自己申告`gender_balance_code`を`women_majority`, `balanced`, `men_majority`, `mixed_or_other`, `not_disclosed`から選ぶ。個人ごとのgender、人数、推測値は収集しない。「仲の良さ」は検証困難、「初心者歓迎度」はtagと重複するため初期ratingへ追加しない。
+
+### 6.1 未回答・非公開の意味（DEC-062）
+
+| Field | 値 | 意味 |
+| --- | --- | --- |
+| 5つの`*_rating` | `NULL` | 団体が未回答。0や3等で補完しない |
+| 5つの`*_rating` | 1～5 | 団体による自己申告の整数値。非公開状態は設けない |
+| `gender_balance_code` | `NULL` | 団体が未回答 |
+| `gender_balance_code` | `not_disclosed` | 団体が明示的に非公開を選択した。男女比専用の値であり、ratingには存在しない |
+| `gender_balance_code` | `mixed_or_other` | 回答済みのその他・多様な構成 |
+
+- `NULL`と`not_disclosed`は別状態であり、相互変換しない。`NULL`を`not_disclosed`へ補完せず、`not_disclosed`を`NULL`へ変換しない。
+- 5 ratingは利用者評価や平均ではなく、団体による自己申告である。
+- 5 ratingを検索filter・sort・rankingへ使うかは未決（UNRESOLVED）であり、本書は決めない。`gender_balance_code`はcategorical filterとして扱う。
+- 本節は意味の明文化であり、schemaは変更しない。
 
 ## 7. 管理権限・審査
 

@@ -1,6 +1,6 @@
 # 技術・設計上の決定
 
-最終更新日: 2026-10-04（DEC-061: most_favoritedの集計対象・段階的不正対策・安定順序・pagination方針を同期）
+最終更新日: 2026-10-06（DEC-062: サークル評価項目（FR-017）を5項目のrating + 男女比カテゴリに確定する方針を同期）
 
 この文書は、過去の方針と最新方針を混同しないための決定記録である。旧方針を消さず、何から何へ変更したかを残す。環境構築だけでは判断できない内容は「未確定」とする。
 
@@ -40,6 +40,7 @@
 - Pull Requestのmerge方式: DEC-059
 - commit author email: DEC-060
 - most_favoritedの集計対象・段階的不正対策・安定順序・pagination: DEC-061
+- サークル評価項目（5項目のrating + 男女比カテゴリ）: DEC-062
 
 DEC-001からDEC-043には、検討経緯を残すため旧方針も記録している。状態が「置換」の決定内容や補足は現在の採用方針ではないため、上記の決定と各正式仕様を優先して読む。
 
@@ -783,6 +784,74 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 
 推薦shuffleにおけるfilterの意味、view記録のtrigger、cold-startの順序制御、将来のrolling-window集計、favoriteCountのAPI response公開（H10）、cache / preaggregationのfreshness、most_favoritedのNFR分類（GET p95 500ミリ秒／検索・書込みp95 800ミリ秒のどちらか）、fraud検知の具体rule・閾値（D2のrelease gateで別途決定）、閲覧signalに対するmanager / operatorの除外scope、Home推薦の上位10件のtie-break（FR-002）。本Decisionの順序はCircle一覧の`sort=most_favorited`に適用する。
 
+## DEC-062: サークル評価項目（FR-017）を5項目のrating + 男女比カテゴリに確定する
+
+- 日付: 2026-10-06
+- 状態: 採用（Notion意思決定ログ上のステータスは、同DBに「採用」optionがないため既存の完了系option「決定」である）
+- 決定内容: Human Decision（2026-10-06 JST、承認者: 一朗、Human Approved: YES）。サークルの評価項目は、5項目のratingと男女比categoryとする。決定するのはratingの保持・表示仕様と男女比のcategory仕様だけであり、5 ratingの検索filter / sort / rankingへの利用は決めない。
+- 決定理由: FR-017（8項目）、FR-004および議事録の検索節（6項目）、current repository（5 rating + 男女比category）の3者が不一致だったため、保持・表示仕様を1つに確定する。主観性の高い項目と既存tagと重複する項目を除外し、男女比は段階評価ではなくcategorical valueとして扱う。検索・並び替え・rankingは影響範囲が別であるため本Decisionに混ぜず、別Human Decisionとして分離する。
+- 旧方針: Notion FR-017は8項目（飲み会頻度、賑やかさ、仲の良さ、初心者歓迎度、本気度、出席自由度、ガクチカ度、男女比）、Notion FR-004と議事録の検索節は6項目を5段階の検索条件として扱っていた。`docs/requirements.md`は5 ratingを「検索条件として扱う」と記載していた。これらはDEC-062で置換する。
+- 根拠: Notion DEC-062（意思決定ログ）、Notion FR-017、Notion FR-004、第1回要件定義議事録（過去記述への`[過去]`置換注記）。本repositoryへの同期は新しいHuman Decisionではない。
+
+### Background / Conflict
+
+- 議事録は雰囲気・特徴を「5段階評価で表現する」とした。評価の主体、尺度、未回答、更新方法はFR-017・FR-004の「対象外・要確認」として未確定だった。
+- 本Decision前は、評価項目の定義がNotion FR-017（8項目）、Notion FR-004・議事録の検索節（6項目）、current repository（5 rating + 男女比category）の3か所で一致していなかった。
+- W4 Public Circle Sliceは公開read範囲を部分実装済みである。
+
+### 採用するrating（5項目）
+
+1. 飲み会頻度（`drinking_frequency_rating`）
+2. 賑やかさ（`liveliness_rating`）
+3. 本気度（`commitment_rating`）
+4. 出席自由度（`attendance_flexibility_rating`）
+5. ガクチカにつながる度（`career_opportunity_rating`）
+
+- 団体による自己申告とする。利用者評価や平均ではない。
+- integer 1〜5とする。
+- `null`は未回答を表す。`null`を0や3等で補完しない。
+- ratingに非公開状態は設けない。
+
+### 男女比はcategorical value
+
+- 男女比はratingではなくcategorical valueとし、`gender_balance_code`は`women_majority`、`balanced`、`men_majority`、`mixed_or_other`、`not_disclosed`のいずれかとする。
+- 男女比のcategorical filter化はFR-004に反映された。具体仕様（選択UI、複数選択、`null`と`not_disclosed`の検索上の扱い）は別Human Decisionとする。
+- 個人単位のgender情報、男女別人数、割合推定値は収集・保存・表示しない。割合の閾値は決めない。
+
+### nullとnot_disclosedの意味
+
+| 値 | 意味 |
+| --- | --- |
+| rating `null` | 団体が未回答 |
+| `gender_balance_code` `null` | 団体が未回答 |
+| `gender_balance_code` = `not_disclosed` | 団体が明示的に非公開を選択した（男女比category専用の値） |
+| `gender_balance_code` = `mixed_or_other` | 回答済みのその他・多様な構成 |
+
+`null`と`not_disclosed`は必ず区別し、相互変換しない。`null`を`not_disclosed`へ補完せず、`not_disclosed`を`null`へ変換しない。
+
+### 初期ratingから除外した項目
+
+| 項目 | 除外理由 |
+| --- | --- |
+| 仲の良さ | 主観性が高く、安定した評価基準を定義しにくい |
+| 初心者歓迎度 | 既存の「初心者歓迎」tagと意味が重複する |
+
+再導入するかどうかは本Decisionでは決めない。
+
+### 検索への利用の境界
+
+- 男女比（`gender_balance_code`）: categorical filterとして扱う。
+- 5 rating: 検索filter、検索sort、rankingへの利用は**UNRESOLVED**とし、別Human Decisionで決める。`docs/requirements.md`を含む正式文書で、5 ratingを検索条件として確定済みと扱わない。
+
+### 既存実装への影響
+
+- W4 Public Circle Sliceはrollbackしない。W4は`COMPLETE`（public read partial implementation）を維持し、FR-017全体は`PARTIAL`を維持する。DEC-062の成立はFR-017全体の完了ではない。
+- Notion側の確認時点で、current repositoryはHuman確認済みの範囲で既に5 rating + 男女比category構成である。本Decisionのrepository同期はdocsだけを更新し、code・DB schema・OpenAPI・mobileは変更しない。
+
+### 本Decisionで決めないもの（未決）
+
+5 ratingの検索filter・sort・ranking利用と方式（UNRESOLVED）、男女比categorical filterの具体仕様、ratingの各段階の意味とUI最終文言、manager editとAPI write、実データの投入方法、男女比の割合閾値、ratingの非公開状態、除外項目（仲の良さ・初心者歓迎度）の再導入可否。
+
 ## 要確認・次workへ引き継ぐ項目
 
 - サービスの正式名称、大学名・公開情報の利用確認
@@ -799,5 +868,6 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - Notionの議事録ページ更新をrepository docsへ同期する担当、確認頻度、差分レビューの運用
 - fraud / abnormal favorite exclusionの具体仕様（別Human Decision。DEC-061 D2のrelease gate: Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前）
 - favoriteCountのAPI response公開（H10）、cursor payloadの機密性（現行codecは署名のみでpayloadはclientから読める。`docs/api-contract.md`参照。DEC-061では決めていない、別Human Decision候補）、most_favoritedのNFR分類
+- 5 ratingの検索filter・sort・rankingへの利用と方式（別Human Decision。DEC-062では決めていない。UNRESOLVED）、男女比categorical filterの具体仕様、ratingの各段階の意味とUI最終文言、評価項目のmanager edit・API write、実データの投入方法
 
 大学Google Workspace限定OAuthの検証は引き継がない。一般Google OAuthとiOSのSign in with Appleはinitial認証として実装対象である。
