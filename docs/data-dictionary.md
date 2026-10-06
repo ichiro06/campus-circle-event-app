@@ -171,6 +171,13 @@ revision単位で`service`（初期は`instagram`, `line`, `website`, `other`）
 
 値はサークル管理者の自己申告であり、「団体による自己申告」と表示する。運営確認は掲載基準の確認であり、実態を保証する認証マークにしない。
 
+> **この尺度表の位置付け（non-normative / provisional）**
+>
+> - 次の表と、表の直後にある飲み会の2・3・4の具体値は、2026-09-15時点のprovisional / reference valuesである。DEC-062（2026-10-06）は、これらの具体的な尺度をHuman Approvedなcontractとして確定していない。各段階の具体的意味とUI最終文言は未確定（UNRESOLVED）であり、別Human Decisionで決める。
+> - DEC-062で正式に確定しているのは、5つのratingのfield set、integer 1～5、`NULL`は未回答、団体による自己申告までである。
+> - 別Human Decisionまでは、この表を根拠に、将来のmanager write UI、検索filter、ranking、validation semanticsを新たに確定しない。
+> - 現行のW4表示が使用している文言をrollbackする意味ではない。表の値は変更しておらず、新しい尺度も決めていない。
+
 | Field | 1 | 3 | 5 |
 | --- | --- | --- | --- |
 | drinking_frequency_rating | なし | 月1回程度 | 週1回以上 |
@@ -181,7 +188,7 @@ revision単位で`service`（初期は`instagram`, `line`, `website`, `other`）
 
 飲み会は2=`年1～3回`、3=`月1回程度`、4=`月2～3回`とする。尺度は将来変更できるよう説明versionを保持する。
 
-上記の尺度表は2026-09-15時点の記述である。Notion FR-017では各段階の意味づけとUI最終文言が未確定として残っており、DEC-062（2026-10-06）はこれを確定していない（別Human Decision）。
+上記の尺度表と飲み会の具体値の位置付けは、表の前の注記（non-normative / provisional）のとおりである。Notion FR-017では各段階の意味づけとUI最終文言が未確定として残っており、DEC-062（2026-10-06）はこれを確定していない（別Human Decision）。
 
 男女比は5段階scoreにしない。任意の自己申告`gender_balance_code`を`women_majority`, `balanced`, `men_majority`, `mixed_or_other`, `not_disclosed`から選ぶ。個人ごとのgender、人数、推測値は収集しない。「仲の良さ」は検証困難、「初心者歓迎度」はtagと重複するため初期ratingへ追加しない。
 

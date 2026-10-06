@@ -153,7 +153,7 @@ ratingは次の5項目とし、団体による自己申告のinteger 1～5で保
 - 男女比（`gender_balance_code`）はcategorical filterとして扱う。選択UI、複数選択、`null`と`not_disclosed`の検索上の扱いなどの具体仕様は未決である。
 - 5 ratingの検索filter、検索sort、rankingへの利用は**UNRESOLVED**であり、別Human Decisionで決める。本書は5 ratingを検索条件として確定しない。
 
-各段階の意味とUI最終文言はDEC-062では確定していない。現行の尺度記述は `docs/data-dictionary.md` 6節を参照する。
+各段階の意味とUI最終文言はDEC-062では確定しておらず、別Human Decisionで決める。`docs/data-dictionary.md` 6節には、2026-09-15時点・current implementationのreference labels（provisionalな尺度表）が残っているが、DEC-062で確定した内容ではない。別Human Decisionまでは、これを本書のnormative requirementとして扱わない。ただし、現行のW4表示の文言をrollbackするものではない。
 
 #### 並び替え
 
