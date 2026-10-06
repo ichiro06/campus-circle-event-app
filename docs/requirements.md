@@ -2,7 +2,7 @@
 
 - 状態: 正式仕様
 - 初版確定日: 2026-07-25
-- 最終更新日: 2026-09-15
+- 最終更新日: 2026-10-06
 - 対象: ホウクル初期実装と、その後の拡張
 
 ## 1. 本書の位置付け
@@ -12,7 +12,7 @@
 本書が参照する要件の一次情報は、Notionの次のページである。Notionページの内容と承認状態を、過去の議事録、過去版Markdown、会話内容より優先する。
 
 - 正式参照先: Notion「アプリ開発プロジェクトWiki」→「議事録」データベース→「第1回要件定義議事録」ページ
-- Notion確認日: 2026-09-15（詳細設計・非機能要件を反映）
+- Notion確認日: 2026-10-06（DEC-062に関するFR-017・FR-004・議事録の該当記述を確認し、サークル評価項目を反映。詳細設計・非機能要件の反映は2026-09-15時点を維持）
 
 本ファイルは、上記Notionページをリポジトリでレビュー・実装確認するための同期スナップショットである。Notionページの更新後に本書との不一致が見つかった場合は、差異と影響を確認し、同期と承認を終えてから実装へ進む。
 
@@ -127,15 +127,33 @@ favorite集計のeligible条件は、favoriteの所有者が現在activeなア�
 
 #### 雰囲気・特徴
 
-次をサークル管理者の自己申告による5段階の整数値で表し、検索条件として扱う。画面には「団体による自己申告」と表示する。
+サークルの評価項目は、5項目のratingと男女比categoryで構成する（2026-10-06 Human Decision、DEC-062）。画面には「団体による自己申告」と表示する。
 
-- 飲み会の頻度
+ratingは次の5項目とし、団体による自己申告のinteger 1～5で保持・表示する。
+
+- 飲み会頻度
 - 賑やかさ
-- 活動の本気度
+- 本気度
 - 出席自由度
 - ガクチカにつながる度
 
-男女比は5段階scoreにせず、任意の区分として女性が多い、概ね均衡、男性が多い、多様・その他、非公開を扱う。個人ごとのgenderや人数は収集しない。「仲の良さ」は検証困難なため、「初心者歓迎度」は既存tagと重複するため初期ratingへ追加しない。各尺度と未回答値は `docs/data-dictionary.md` を正とする。
+- `null`は未回答を表す。`null`を0や3等で補完しない。
+- ratingに非公開状態は設けない。
+- 利用者評価や平均ではない。
+
+男女比はratingでも5段階scoreでもなく、categorical valueとして扱う。値は`women_majority`（女性が多い）、`balanced`（概ね均衡）、`men_majority`（男性が多い）、`mixed_or_other`（回答済みのその他・多様な構成）、`not_disclosed`（団体が明示的に非公開を選択）とする。
+
+- `null`は団体が未回答であることを表す。`null`と`not_disclosed`は区別し、相互変換しない。
+- 個人単位のgender情報、男女別人数、割合推定値は収集・保存・表示しない。割合の閾値は決めていない。
+
+「仲の良さ」は主観性が高く安定した評価基準を定義しにくいため、「初心者歓迎度」は既存の「初心者歓迎」tagと意味が重複するため、初期ratingから除外する。再導入するかどうかは決めていない。
+
+検索での扱い（DEC-062）:
+
+- 男女比（`gender_balance_code`）はcategorical filterとして扱う。選択UI、複数選択、`null`と`not_disclosed`の検索上の扱いなどの具体仕様は未決である。
+- 5 ratingの検索filter、検索sort、rankingへの利用は**UNRESOLVED**であり、別Human Decisionで決める。本書は5 ratingを検索条件として確定しない。
+
+各段階の意味とUI最終文言はDEC-062では確定しておらず、別Human Decisionで決める。`docs/data-dictionary.md` 6節には、2026-09-15時点・current implementationのreference labels（provisionalな尺度表）が残っているが、DEC-062で確定した内容ではない。別Human Decisionまでは、これを本書のnormative requirementとして扱わない。ただし、現行のW4表示の文言をrollbackするものではない。
 
 #### 並び替え
 
@@ -183,7 +201,7 @@ favorite集計のeligible条件は、favoriteの所有者が現在activeなア�
 - SNSリンクとしてInstagramとLINEを扱う。
 - お気に入り、違反報告、共有を提供する。
 
-詳細では、規模、活動頻度、曜日、時間帯、費用、雰囲気・特徴を表示する。費用は、入会費、年会費、月会費、参加ごとの費用、その他費用、費用なしを区別する。
+詳細では、規模、活動頻度、曜日、時間帯、費用、雰囲気・特徴を表示する。費用は、入会費、年会費、月会費、参加ごとの費用、その他費用、費用なしを区別する。雰囲気・特徴は、6.2の5 ratingと男女比categoryを団体による自己申告として表示し、未回答（`null`）は0や3等で補完しない。
 
 ### 6.5 お気に入り
 
@@ -485,6 +503,7 @@ iOS版では一般Googleログインを提供し、大学発行アカウント�
 9. 利用規約、プライバシーポリシー、行動履歴の説明文面と必要に応じた法務確認
 10. Apple Developer、Google Play、Google Cloud、Supabase、Render、EASのowner、region、月額上限、支払責任者
 11. bundle identifier、Android package name、Universal Links / App Linksのdomain
+12. 5 ratingの検索filter・sort・rankingへの利用と方式、男女比categorical filterの具体仕様、ratingの各段階の意味とUI最終文言、評価項目のmanager editとAPI write、実データの投入方法（DEC-062で未決として分離）
 
 画面状態、data dictionary、API契約、初回DB schema、profile保持、推薦rule、管理者確認、account recovery、非機能目標は2026-09-15に決定済みである。上記の外部所有・費用・将来機能は推測で設定しない。
 
