@@ -50,7 +50,7 @@ W4 Entry Gate Audit（基準: `main` `bdd252e`、PR #27 merge済み、main CI #4
 | C. Home Production Ready | Gate Bに加え、fraud / abnormal signalの具体仕様 | **BLOCKED**（DEC-061 D2のrelease gateを維持） |
 | D. External Beta / Release Readiness | fraud具体仕様、most_favorited NFR分類、production-equivalent環境での性能検証、外部project・identifier・store等、既存release security gates | **BLOCKED** |
 
-`W4 Public Circle Slice`はGate Aを満たすため**READY_TO_START**である。ただし対象は公開read vertical sliceだけであり、Gate B〜Dの未決事項はW4 public readの開始・実装を止めない。
+`W4 Public Circle Slice`はGate Aを満たして開始し、公開read範囲の実装と自動検証・iOS Simulator・Android Emulatorの主要flow確認を完了した（**COMPLETE**。実装状況の記録であり、FR-001 / FR-005 / FR-017 / FR-018の全体完了ではない。VoiceOver実操作とTalkBackの読み上げ音声は未確認）。ただし対象は公開read vertical sliceだけであり、Gate B〜Dの未決事項はW4 public readの開始・実装を止めない。
 
 #### W4で実装可能な範囲
 

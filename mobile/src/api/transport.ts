@@ -1,10 +1,18 @@
 import { getApiBaseUrl, normalizeApiBaseUrl } from "@/config/environment";
 
-import { ApiClientError } from "./errors";
+import { ApiClientError, type ApiFailure } from "./errors";
 import { parseProblemDetails } from "./problem-details";
 import { serializeQueryParameters } from "./query-parameters";
 
 export const DEFAULT_API_TIMEOUT_MS = 10_000;
+
+// docs/screen-flow.md 6: GET retries at most twice, after about 0.5s and 1.5s plus jitter.
+export const DEFAULT_RETRY_DELAYS_MS: readonly number[] = [500, 1_500];
+export const RETRY_JITTER_RATIO = 0.25;
+// setTimeout stores its delay as a signed 32-bit integer; a larger value fires immediately.
+// This is a platform limit on the timer, not a Retry-After policy.
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+export const RETRYABLE_HTTP_STATUSES: readonly number[] = [429, 502, 503, 504];
 
 export type AccessTokenProvider = () => Promise<string | null>;
 export type FetchImplementation = typeof fetch;
@@ -25,6 +33,10 @@ export interface CreateApiTransportOptions {
   accessTokenProvider?: AccessTokenProvider;
   baseUrl?: string;
   fetchImpl?: FetchImplementation;
+  /** Jitter source in [0, 1). Injectable so tests stay deterministic. */
+  random?: () => number;
+  /** Delays before each GET retry. The array length is the maximum retry count. */
+  retryDelaysMs?: readonly number[];
   timeoutMs?: number;
 }
 
@@ -39,6 +51,83 @@ function isJsonContentType(contentType: string | undefined): boolean {
     contentType === "application/json" ||
     contentType?.endsWith("+json") === true
   );
+}
+
+export function parseRetryAfterMs(
+  value: string | null | undefined,
+  now: number = Date.now(),
+): number | undefined {
+  const candidate = value?.trim();
+
+  if (!candidate) {
+    return undefined;
+  }
+
+  if (/^\d+$/u.test(candidate)) {
+    return Number(candidate) * 1_000;
+  }
+
+  const date = Date.parse(candidate);
+
+  return Number.isNaN(date) ? undefined : Math.max(0, date - now);
+}
+
+function getRetryAfterMs(response: Response): number | undefined {
+  return parseRetryAfterMs(response.headers.get("retry-after"));
+}
+
+function isRetryableFailure(failure: ApiFailure): boolean {
+  switch (failure.kind) {
+    case "network":
+    case "timeout":
+      return true;
+    case "problem":
+      return RETRYABLE_HTTP_STATUSES.includes(failure.httpStatus);
+    case "unexpectedResponse":
+      return (
+        failure.httpStatus !== undefined &&
+        RETRYABLE_HTTP_STATUSES.includes(failure.httpStatus)
+      );
+    case "cancelled":
+      return false;
+  }
+}
+
+function getRetryWaitMs(
+  failure: ApiFailure,
+  baseDelayMs: number,
+  random: () => number,
+): number {
+  const retryAfterMs =
+    failure.kind === "problem" || failure.kind === "unexpectedResponse"
+      ? failure.retryAfterMs
+      : undefined;
+
+  if (retryAfterMs !== undefined) {
+    return Math.min(retryAfterMs, MAX_TIMER_DELAY_MS);
+  }
+
+  return Math.round(baseDelayMs * (1 + random() * RETRY_JITTER_RATIO));
+}
+
+function waitBeforeRetry(waitMs: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new ApiClientError({ kind: "cancelled" }));
+      return;
+    }
+
+    const handleAbort = () => {
+      clearTimeout(timeoutId);
+      reject(new ApiClientError({ kind: "cancelled" }));
+    };
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener("abort", handleAbort);
+      resolve();
+    }, waitMs);
+
+    signal?.addEventListener("abort", handleAbort, { once: true });
+  });
 }
 
 function getAbortError(
@@ -104,6 +193,8 @@ export function createApiTransport({
   accessTokenProvider,
   baseUrl,
   fetchImpl = fetch,
+  random = Math.random,
+  retryDelaysMs = DEFAULT_RETRY_DELAYS_MS,
   timeoutMs = DEFAULT_API_TIMEOUT_MS,
 }: CreateApiTransportOptions = {}): ApiTransport {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
@@ -114,131 +205,162 @@ export function createApiTransport({
     ? normalizeApiBaseUrl(baseUrl, { requireHttps: !__DEV__ })
     : getApiBaseUrl();
 
+  async function requestOnce<ResponseBody>(
+    options: ApiRequestOptions,
+  ): Promise<ResponseBody> {
+    if (options.signal?.aborted) {
+      throw getAbortError("cancelled", timeoutMs);
+    }
+
+    const controller = new AbortController();
+    let abortSource: AbortSource | undefined;
+    let rejectForAbort: (error: ApiClientError) => void = () => {};
+    const abortPromise = new Promise<never>((_resolve, reject) => {
+      rejectForAbort = reject;
+    });
+    const raceWithAbort = <Value>(promise: Promise<Value>) =>
+      Promise.race([promise, abortPromise]);
+
+    const abort = (source: AbortSource) => {
+      if (abortSource) {
+        return;
+      }
+
+      abortSource = source;
+      rejectForAbort(getAbortError(source, timeoutMs));
+      controller.abort();
+    };
+
+    const handleCallerAbort = () => abort("cancelled");
+
+    options.signal?.addEventListener("abort", handleCallerAbort, {
+      once: true,
+    });
+
+    const timeoutId = setTimeout(() => abort("timeout"), timeoutMs);
+
+    try {
+      const accessToken = accessTokenProvider
+        ? await raceWithAbort(resolveAccessToken(accessTokenProvider))
+        : null;
+
+      if (abortSource) {
+        throw getAbortError(abortSource, timeoutMs);
+      }
+
+      const url = buildUrl(resolvedBaseUrl, options);
+      const headers = buildHeaders(options.headers, accessToken);
+
+      let response: Response;
+
+      try {
+        response = await raceWithAbort(
+          fetchImpl(url, {
+            headers,
+            method: options.method,
+            signal: controller.signal,
+          }),
+        );
+      } catch (cause) {
+        if (abortSource) {
+          throw getAbortError(abortSource, timeoutMs);
+        }
+
+        throw new ApiClientError({ kind: "network", cause });
+      }
+
+      const contentType = getContentType(response);
+
+      if (!isJsonContentType(contentType)) {
+        throw new ApiClientError({
+          kind: "unexpectedResponse",
+          httpStatus: response.status,
+          contentType,
+          retryAfterMs: getRetryAfterMs(response),
+        });
+      }
+
+      let body: unknown;
+
+      try {
+        body = await raceWithAbort(response.json());
+      } catch {
+        if (abortSource) {
+          throw getAbortError(abortSource, timeoutMs);
+        }
+
+        throw new ApiClientError({
+          kind: "unexpectedResponse",
+          httpStatus: response.status,
+          contentType,
+          retryAfterMs: getRetryAfterMs(response),
+        });
+      }
+
+      if (abortSource) {
+        throw getAbortError(abortSource, timeoutMs);
+      }
+
+      if (response.ok) {
+        return body as ResponseBody;
+      }
+
+      if (contentType !== "application/problem+json") {
+        throw new ApiClientError({
+          kind: "unexpectedResponse",
+          httpStatus: response.status,
+          contentType,
+          retryAfterMs: getRetryAfterMs(response),
+        });
+      }
+
+      const problem = parseProblemDetails(body);
+
+      if (!problem || problem.status !== response.status) {
+        throw new ApiClientError({
+          kind: "unexpectedResponse",
+          httpStatus: response.status,
+          contentType,
+          retryAfterMs: getRetryAfterMs(response),
+        });
+      }
+
+      throw new ApiClientError({
+        kind: "problem",
+        httpStatus: response.status,
+        problem,
+        retryAfterMs: getRetryAfterMs(response),
+      });
+    } finally {
+      clearTimeout(timeoutId);
+      options.signal?.removeEventListener("abort", handleCallerAbort);
+    }
+  }
+
   return {
     async request<ResponseBody>(
       options: ApiRequestOptions,
     ): Promise<ResponseBody> {
-      if (options.signal?.aborted) {
-        throw getAbortError("cancelled", timeoutMs);
-      }
-
-      const controller = new AbortController();
-      let abortSource: AbortSource | undefined;
-      let rejectForAbort: (error: ApiClientError) => void = () => {};
-      const abortPromise = new Promise<never>((_resolve, reject) => {
-        rejectForAbort = reject;
-      });
-      const raceWithAbort = <Value>(promise: Promise<Value>) =>
-        Promise.race([promise, abortPromise]);
-
-      const abort = (source: AbortSource) => {
-        if (abortSource) {
-          return;
-        }
-
-        abortSource = source;
-        rejectForAbort(getAbortError(source, timeoutMs));
-        controller.abort();
-      };
-
-      const handleCallerAbort = () => abort("cancelled");
-
-      options.signal?.addEventListener("abort", handleCallerAbort, {
-        once: true,
-      });
-
-      const timeoutId = setTimeout(() => abort("timeout"), timeoutMs);
-
-      try {
-        const accessToken = accessTokenProvider
-          ? await raceWithAbort(resolveAccessToken(accessTokenProvider))
-          : null;
-
-        if (abortSource) {
-          throw getAbortError(abortSource, timeoutMs);
-        }
-
-        const url = buildUrl(resolvedBaseUrl, options);
-        const headers = buildHeaders(options.headers, accessToken);
-
-        let response: Response;
-
+      for (let attempt = 0; ; attempt += 1) {
         try {
-          response = await raceWithAbort(
-            fetchImpl(url, {
-              headers,
-              method: options.method,
-              signal: controller.signal,
-            }),
+          return await requestOnce<ResponseBody>(options);
+        } catch (error) {
+          const baseDelayMs = retryDelaysMs[attempt];
+
+          if (
+            options.method !== "GET" ||
+            baseDelayMs === undefined ||
+            !(error instanceof ApiClientError) ||
+            !isRetryableFailure(error.failure)
+          ) {
+            throw error;
+          }
+
+          await waitBeforeRetry(
+            getRetryWaitMs(error.failure, baseDelayMs, random),
+            options.signal,
           );
-        } catch (cause) {
-          if (abortSource) {
-            throw getAbortError(abortSource, timeoutMs);
-          }
-
-          throw new ApiClientError({ kind: "network", cause });
         }
-
-        const contentType = getContentType(response);
-
-        if (!isJsonContentType(contentType)) {
-          throw new ApiClientError({
-            kind: "unexpectedResponse",
-            httpStatus: response.status,
-            contentType,
-          });
-        }
-
-        let body: unknown;
-
-        try {
-          body = await raceWithAbort(response.json());
-        } catch {
-          if (abortSource) {
-            throw getAbortError(abortSource, timeoutMs);
-          }
-
-          throw new ApiClientError({
-            kind: "unexpectedResponse",
-            httpStatus: response.status,
-            contentType,
-          });
-        }
-
-        if (abortSource) {
-          throw getAbortError(abortSource, timeoutMs);
-        }
-
-        if (response.ok) {
-          return body as ResponseBody;
-        }
-
-        if (contentType !== "application/problem+json") {
-          throw new ApiClientError({
-            kind: "unexpectedResponse",
-            httpStatus: response.status,
-            contentType,
-          });
-        }
-
-        const problem = parseProblemDetails(body);
-
-        if (!problem || problem.status !== response.status) {
-          throw new ApiClientError({
-            kind: "unexpectedResponse",
-            httpStatus: response.status,
-            contentType,
-          });
-        }
-
-        throw new ApiClientError({
-          kind: "problem",
-          httpStatus: response.status,
-          problem,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-        options.signal?.removeEventListener("abort", handleCallerAbort);
       }
     },
   };

@@ -16,7 +16,7 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name={ROOT_STACK_ROUTES.circleDetail}
-          options={{ title: "サークル詳細" }}
+          options={{ headerBackTitle: "戻る", title: "サークル詳細" }}
         />
       </Stack>
       <StatusBar style="dark" />

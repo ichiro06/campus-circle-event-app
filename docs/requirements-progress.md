@@ -1,7 +1,7 @@
 # 要件定義の進捗
 
 - 最終更新日: 2026-10-05
-- 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`は公開read範囲に限りREADY_TO_START（Public Read API Readiness: PASS）。Personalized Home Contract、Home Production Ready、External Beta / Releaseは未決事項が残りBLOCKED（`docs/coding-readiness.md` 3.1）
+- 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`は公開read範囲の実装・検証が完了（public read slice COMPLETE。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではない）。Personalized Home Contract、Home Production Ready、External Beta / Releaseは未決事項が残りBLOCKED（`docs/coding-readiness.md` 3.1）
 
 ## 1. 情報源
 
@@ -101,7 +101,7 @@
    - C. Home Production Ready: **BLOCKED**（Gate Bに加え、fraud / abnormal signalの具体仕様が必要。DEC-061 D2のrelease gate、OPEN）
    - D. External Beta / Release Readiness: **BLOCKED**（fraud具体仕様、most_favorited NFR分類、production-equivalent性能検証、外部project・identifier・store等、既存release security gates）
    - 未決のまま: A2、R1、R2、view signalに対するmanager / operator除外scope、H10、most_favorited NFR分類はUNRESOLVED、cursor confidentialityはFOLLOWUP、性能follow-upとfraud具体仕様はOPEN。
-3. `W4 Public Circle Slice`: 公開read範囲に限りREADY_TO_START。未ログインHome（`sort=most_favorited`）、Search public list、Circle card、Circle detailを両Simulatorで接続する。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではなくpartial implementationとして扱い、personalized Home、view write、favorite write、interest scoring、決定的shuffle、fraud検知、manager / operator機能は含めない。
+3. `W4 Public Circle Slice`: 公開read範囲の実装と、自動検証・iOS Simulator・Android Emulatorの主要flow確認が完了（COMPLETE。実装状況であり製品要件の承認ではない。VoiceOver実操作とTalkBackの読み上げ音声は未確認）。未ログインHome（`sort=most_favorited`）、Search public list、Circle card、Circle detailを両Simulatorで接続する。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではなくpartial implementationとして扱い、personalized Home、view write、favorite write、interest scoring、決定的shuffle、fraud検知、manager / operator機能は含めない。
 4. `View Definition Gate`: View定義は正式文書間で未解決である。解決するまでcircle view write、view history behavior、viewをsignalとして使うrecommendation logicは実装しない。
 5. 外部projectが必要になる直前にowner・identifier・planを確定する。
 6. 認証・profile・favorite、manager審査の順でpermission test付き実装へ進む。Viewをsignalとして使うrecommendationはView Definition Gate解決後とする。
