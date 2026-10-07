@@ -204,7 +204,8 @@ revision単位で`service`（初期は`instagram`, `line`, `website`, `other`）
 
 - `NULL`と`not_disclosed`は別状態であり、相互変換しない。`NULL`を`not_disclosed`へ補完せず、`not_disclosed`を`NULL`へ変換しない。
 - 5 ratingは利用者評価や平均ではなく、団体による自己申告である。
-- 5 ratingを検索filter・sort・rankingへ使うかは未決（UNRESOLVED）であり、本書は決めない。`gender_balance_code`はcategorical filterとして扱う。
+- 5 ratingはS5 MVPの検索filter・sort・rankingに使わない（DEC-063、2026-10-07）。保持とCircle Detail表示は維持し、将来の検索利用は各段階の尺度・UI最終文言を確定した後の別Human Decisionで再検討する。
+- `gender_balance_code`はcategorical filterとして扱う。Search UIの選択肢は回答済み4 categoryだけで、`not_disclosed`と`NULL`はUI filter optionに出さない（filter未指定時は除外しない）。`not_disclosed`はenum・schemaに残り、`NULL`との区別も変えない（DEC-063）。
 - 本節は意味の明文化であり、schemaは変更しない。
 
 ## 7. 管理権限・審査
