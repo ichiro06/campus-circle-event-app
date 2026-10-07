@@ -2,7 +2,7 @@
 
 - 状態: 正式仕様
 - 初版確定日: 2026-07-25
-- 最終更新日: 2026-10-06
+- 最終更新日: 2026-10-07
 - 対象: ホウクル初期実装と、その後の拡張
 
 ## 1. 本書の位置付け
@@ -12,7 +12,7 @@
 本書が参照する要件の一次情報は、Notionの次のページである。Notionページの内容と承認状態を、過去の議事録、過去版Markdown、会話内容より優先する。
 
 - 正式参照先: Notion「アプリ開発プロジェクトWiki」→「議事録」データベース→「第1回要件定義議事録」ページ
-- Notion確認日: 2026-10-06（DEC-062に関するFR-017・FR-004・議事録の該当記述を確認し、サークル評価項目を反映。詳細設計・非機能要件の反映は2026-09-15時点を維持）
+- Notion確認日: 2026-10-07（DEC-063に関するFR-004・FR-017・議事録の該当記述を確認し、S5検索のrating除外・男女比filterのUI選択肢・離散値chip複数選択を反映。2026-10-06のDEC-062によるサークル評価項目の反映を維持。詳細設計・非機能要件の反映は2026-09-15時点を維持）
 
 本ファイルは、上記Notionページをリポジトリでレビュー・実装確認するための同期スナップショットである。Notionページの更新後に本書との不一致が見つかった場合は、差異と影響を確認し、同期と承認を終えてから実装へ進む。
 
@@ -125,6 +125,8 @@ favorite集計のeligible条件は、favoriteの所有者が現在activeなア�
 - 年間費用: 0円から20,000円以上
 - 人気ハッシュタグ: 初心者歓迎、留学生歓迎、兼サーOK、途中入部歓迎、友達作り、少人数、大会あり等
 
+合宿（`campFrequencyCode`）・規模（`memberCountBand`）・活動頻度（`activityFrequencyCode`）のSearch UIは、レンジスライダーではなく離散値のchip複数選択とする（2026-10-07 Human Decision、DEC-063 D3）。レンジスライダーはS5 MVPでは採用しない。同一filter内の複数選択はOR、異なるfilter間はANDであり、これは既存のAPI contract（`docs/api-contract.md`）である。
+
 #### 雰囲気・特徴
 
 サークルの評価項目は、5項目のratingと男女比categoryで構成する（2026-10-06 Human Decision、DEC-062）。画面には「団体による自己申告」と表示する。
@@ -148,10 +150,16 @@ ratingは次の5項目とし、団体による自己申告のinteger 1～5で保
 
 「仲の良さ」は主観性が高く安定した評価基準を定義しにくいため、「初心者歓迎度」は既存の「初心者歓迎」tagと意味が重複するため、初期ratingから除外する。再導入するかどうかは決めていない。
 
-検索での扱い（DEC-062）:
+検索での扱い（DEC-062、DEC-063。2026-10-07 Human Decision）:
 
-- 男女比（`gender_balance_code`）はcategorical filterとして扱う。選択UI、複数選択、`null`と`not_disclosed`の検索上の扱いなどの具体仕様は未決である。
-- 5 ratingの検索filter、検索sort、rankingへの利用は**UNRESOLVED**であり、別Human Decisionで決める。本書は5 ratingを検索条件として確定しない。
+- 5 rating: S5 MVPのsearch filter、sort、rankingでは使用しない（DEC-063 D1）。ratingは保持とCircle Detailでの表示までとし、rating fieldの削除、rating表示の削除、W4 rollbackは意味しない。将来の検索利用は、各段階の具体的尺度とUI最終文言を別Human Decisionで確定した後に再検討する。
+- 男女比（`gender_balance_code`）: categorical filterとして提供する（DEC-063 D2）。
+  - Search UIで選択できるのは回答済みの4 category（`women_majority`、`balanced`、`men_majority`、`mixed_or_other`）だけである。最終表示文言は未確定である（DEC-063の表示案は女性が多い・おおむね均等・男性が多い・多様・その他の「相当」であり、既存仕様との整合確認後に別途決める。`balanced`の表記差は`docs/decisions.md` DEC-063のFollow-upを参照）。
+  - `not_disclosed`と`null`は、Search UIのfilter optionに出さない。
+  - filter未指定時は、`null`と`not_disclosed`のCircleを含め、通常どおりすべてを検索対象に含める。filter指定時だけ、選択した回答済みcategoryへ絞る。
+  - 上記はproduct UIの選択肢の公開範囲（UI exposure）であり、backend APIが`genderBalanceCode`として受理する値（API capability）を変更しない。`not_disclosed`をenum・API・schemaから削除せず、`null`と`not_disclosed`を統合しない（DEC-062のsemanticsを維持）。
+  - 複数選択はsame-filter OR、他filterとの組合せはANDであり、これは既存のAPI contractである。
+- 合宿・規模・活動頻度: 離散値のchip複数選択とし、レンジスライダーはS5 MVPでは採用しない（上記、DEC-063 D3）。
 
 各段階の意味とUI最終文言はDEC-062では確定しておらず、別Human Decisionで決める。`docs/data-dictionary.md` 6節には、2026-09-15時点・current implementationのreference labels（provisionalな尺度表）が残っているが、DEC-062で確定した内容ではない。別Human Decisionまでは、これを本書のnormative requirementとして扱わない。ただし、現行のW4表示の文言をrollbackするものではない。
 
@@ -503,7 +511,8 @@ iOS版では一般Googleログインを提供し、大学発行アカウント�
 9. 利用規約、プライバシーポリシー、行動履歴の説明文面と必要に応じた法務確認
 10. Apple Developer、Google Play、Google Cloud、Supabase、Render、EASのowner、region、月額上限、支払責任者
 11. bundle identifier、Android package name、Universal Links / App Linksのdomain
-12. 5 ratingの検索filter・sort・rankingへの利用と方式、男女比categorical filterの具体仕様、ratingの各段階の意味とUI最終文言、評価項目のmanager editとAPI write、実データの投入方法（DEC-062で未決として分離）
+12. ratingの各段階の意味とUI最終文言、5 ratingの将来の検索利用方式（S5 MVPでは使用しない。DEC-063）、男女比filterの最終表示文言と割合閾値、評価項目のmanager editとAPI write、実データの投入方法（DEC-062・DEC-063で未決として残る）
+13. S5検索の残課題（DEC-063では決めない）: area structured filter（都道府県・市区町村・沿線・駅）、annual cost filter、tag master endpoint / vocabulary、timeBand all_day / irregular semantics
 
 画面状態、data dictionary、API契約、初回DB schema、profile保持、推薦rule、管理者確認、account recovery、非機能目標は2026-09-15に決定済みである。上記の外部所有・費用・将来機能は推測で設定しない。
 
