@@ -1,0 +1,8 @@
+# Official hosted Notion MCP for this trusted repository.
+# OAuth credentials are managed by Codex outside the repository.
+[mcp_servers.notion]
+url = "https://mcp.notion.com/mcp"
+auth = "oauth"
+enabled = true
+required = false
+default_tools_approval_mode = "writes"

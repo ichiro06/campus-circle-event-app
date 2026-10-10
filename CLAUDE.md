@@ -63,6 +63,6 @@ Notion を読めない環境（クラウドセッションで Notion connector �
 
 ## ローカルとクラウドの違い
 
-- ローカルの untracked / ignored file（`.codex/`、`backend/.env`、`mobile/.env.local` 等）、user settings、memory がクラウドへ自動的に引き継がれるとは仮定しない。必要な file・environment variable・authentication は、secret value を表示せず、対象環境で存在を確認する。
+- ローカルの untracked / ignored file（`backend/.env`、`mobile/.env.local` 等）、user settings、memory がクラウドへ自動的に引き継がれるとは仮定しない。必要な file・environment variable・authentication は、secret value を表示せず、対象環境で存在を確認する。
 - Docker Compose、iOS Simulator、Android Emulator、`expo-doctor` 等は、クラウドという理由だけで実行不能と決めない。対象環境の能力・設定を確認して実行可能な検証は実行し、未実施の検証と GitHub Actions CI の検証結果を区別して報告する。
 - ローカル Codex の Notion MCP 設定・認証が Claude Code のクラウドセッションへ自動的に引き継がれるとは仮定しない。対象 Claude Code session で connector / MCP 接続と対象 Notion page へのアクセス可否を確認する。
