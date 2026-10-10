@@ -1,6 +1,6 @@
 # Campus Circle Event App: Agent Guide
 
-このファイルは、リポジトリ全体で作業するCodex向けの共通ルールです。
+このファイルは、リポジトリ全体で作業するAI coding agent（Codex、Claude Code、GitHub Copilot、Gemini）共通のルールです。各agentの担当範囲、branch名、review・mergeの分担は `docs/development-workflow.md` の「14. AI coding agentの役割分担」に従う。
 
 ## 作業開始時
 
@@ -132,7 +132,7 @@ curl http://localhost:8000/api/events
 
 - `README.md`: プロジェクトの入口と最短の起動手順
 - `mobile/README.md`: 正式なiOS・Android製品client固有の操作
-- `docs/development-workflow.md`: 開発情報源、Slack・Notion・Codex・Git/GitHubの役割と連携
+- `docs/development-workflow.md`: 開発情報源、Slack・Notion・Codex・Git/GitHubの役割と連携、AI coding agentの役割分担（14章）
 - `docs/development-setup.md`: 共同で実施したmacOS環境構築の実績、再構築、検証
 - `docs/requirements.md`: Notionの「第1回要件定義議事録」を同期した製品要件スナップショットと初期リリース範囲
 - `docs/architecture.md`: 正式採用する目標構成と現在との差
