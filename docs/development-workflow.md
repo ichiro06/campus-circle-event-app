@@ -2,7 +2,7 @@
 
 - 状態: 正式運用
 - 初版: 2026-07-25
-- 最終更新日: 2026-09-17
+- 最終更新日: 2026-10-10
 - 対象: Campus Circle Event App の要件管理、開発作業、意思決定、連絡
 
 ## 1. 目的と対象範囲
@@ -23,6 +23,7 @@ SlackとCodex Cloudの直接連携は今回の対象外とする。導入条件�
 | Slack | 開発メンバー間の会話、相談、議論、短い共有 | Slack上の発言だけでは正式な要件・決定としない |
 | Notion | 人間が管理するプロダクト要件、タスク、担当、進捗、承認済み決定 | 現在の要件、タスク、担当、進捗、承認状態 |
 | Codex | Notion、リポジトリ、Gitの正式情報を確認した上で実装・検証する | Codexの回答だけでは正式情報としない |
+| Claude Code / GitHub Copilot / Gemini | 「14. AI coding agentの役割分担」に定める範囲で、正式情報を確認した上で調査・実装・review・検証する | AIの回答・reviewだけでは正式情報・merge承認としない |
 | Git / GitHub | コード、技術仕様、開発ルール、レビュー、CI、依存更新、変更履歴 | Git管理されたコード、`AGENTS.md`、`docs/`、GitHub Actions、commit、Pull Request |
 
 情報源の優先順位は次のとおりとする。
@@ -264,3 +265,36 @@ SlackとCodex Cloudの直接連携は、次が安定してから別の決定と�
 - [Notion: MCP security best practices](https://developers.notion.com/guides/mcp/mcp-security-best-practices)
 - [OpenAI: Codex MCP configuration](https://developers.openai.com/codex/mcp/)
 - [Slack Marketplace: Notion](https://slack.com/marketplace/A049JV0H0KC-notion)
+- [GitHub: Adding repository custom instructions for GitHub Copilot](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions)
+- [Gemini CLI: Provide context with GEMINI.md files](https://geminicli.com/docs/cli/gemini-md/)
+
+## 14. AI coding agentの役割分担
+
+- 状態: 採用（2026-10-10、人間が承認）
+
+Codex、Claude Code（ローカル / クラウド）、GitHub Copilot、Geminiは、いずれも `AGENTS.md` と `docs/` を正本として同じルールに従う。各agentの入口fileは `AGENTS.md` を参照するだけにし、ルール本文を複製しない。
+
+| agent | 入口file | 主に任せる作業 | 単独で任せない作業 |
+| --- | --- | --- | --- |
+| Claude Code（ローカル） | `CLAUDE.md` | Simulator / Emulator / 実機確認、未push変更がある作業、localhostやDocker Composeを使う検証 | merge、外部サービス設定 |
+| Claude Code（クラウド） | `CLAUDE.md` | GitHub上で完結する作業。仕様整理、Notionとrepository docsの差分分析、docs同期、要件が明確な実装、独立review | Simulator確認が必須の完了判定、ローカル未push変更に依存する作業 |
+| Codex | `AGENTS.md`、`.codex/config.toml` | 現物確認、実装、Git / Pull Request / CI対応、Notion MCPを使う作業 | 仕様の新規決定、Notion上の承認操作 |
+| GitHub Copilot | `.github/copilot-instructions.md`、`AGENTS.md` | Issue単位で範囲と完了条件が明確な小さな実装（cloud agent）、Pull Requestの追加review（code review）、editor内の補完・小修正 | 仕様未確定の作業、Authentication / Authorization、DB migration、API契約変更、依存更新 |
+| Gemini | `GEMINI.md`（`AGENTS.md`をimport） | docs全体の横断整合チェック、second opinionのreview、Google系サービス（Google OAuth、Google Play Console、Android）の公式情報調査 | 明示的な依頼のない文書・codeの変更 |
+
+### 振り分けの判断順
+
+1. 仕様が未確定、またはNotionとrepository docsが食い違う: 実装に回さず、差分を整理して人間の判断を待つ。
+2. Simulator / 実機 / localhost / 未push変更が必要: Claude Code（ローカル）またはCodex（ローカル）。
+3. Authentication / Authorization、DB migration、API契約変更、依存更新: CodexまたはClaude Code。GitHub Copilotには単独で任せない。
+4. 1 Issueで完結し、変更fileが少なく、完了条件をtestで書ける: GitHub Copilot cloud agent。
+5. 実装後のreview: 実装したagent以外が行う。Geminiはsecond opinionとして使う。
+
+### 衝突を避けるルール
+
+- 1 task = 1 agent = 1 branchとし、同じbranch・同じworktreeを複数agentで同時に編集しない。
+- branch名のprefixで担当を区別する: `codex/`、`claude/`、`copilot/`（GitHub Copilot cloud agentが付与）、`gemini/`。
+- 依頼には、目的、根拠（要件ID・docsの章）、起点branch、変更してよい範囲、変更しない範囲、完了条件、検証command、未確定事項を書く。
+- 報告は「確認した事実 / 変更内容 / 検証結果 / 未実施の検証と理由 / 人間の判断が必要な事項」に分ける。
+- 担当を途中で替える場合は、前の担当のbranch、HEAD、未完了事項を次の担当に渡す。
+- どのagentもmerge承認者にならない。mergeは「Pull Requestのmergeとcommit identity」に従い、人間が明示承認する。
