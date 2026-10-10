@@ -12,7 +12,7 @@
 ## 変更範囲
 
 - Issue で指定された範囲だけを変更する。依頼外のリファクタリング、依存の追加・更新、`.github/workflows/` の変更をしない。
-- Authentication / Authorization、DB migration、`backend/openapi.json` の契約変更は、Issue で明示されていない限り行わない。
+- Authentication / Authorization、DB migration、API契約変更（`backend/openapi.json`）、依存更新は担当しない（`docs/development-workflow.md`「14. AI coding agentの役割分担」）。Issue でこれらが求められている場合も実装せず、Codex または Claude Code への引き継ぎが必要だと報告して止まる。
 - Google / Apple / email のログイン成功だけで circle manager 権限を与える実装をしない。権限は `user_id` と `circle_id` の membership で判定する。
 - テストを skip・削除して CI を通さない。テストを通すためだけに仕様を変えない。
 - 秘密情報（`.env*`、token、PAT、秘密鍵、Supabase service role key、`CURSOR_SIGNING_SECRET` の実値）、非公開 Notion URL、ローカル絶対パスを commit しない。
