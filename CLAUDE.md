@@ -30,7 +30,8 @@ Notion を読めない環境（クラウドセッションで Notion connector �
 
 - `.editorconfig`（LF、TS/JS/MD/YAML は 2 space、Python は 4 space）、ruff（line-length 100、py313）、ESLint（root: next、mobile: expo）に従う。
 - 文書は日本語＋技術用語は英語表記の既存スタイルに合わせる。
-- commit メッセージ・branch 名の規則は文書化されていない（未確認）。既存履歴は `type(scope): summary` 形式、branch は `codex/<topic>`。
+- commit メッセージの規則は文書化されていない（未確認）。既存履歴は `type(scope): summary` 形式。
+- branch 名は `docs/development-workflow.md`「14. AI coding agentの役割分担」に従い、Claude Code は `claude/<topic>` を使う。
 
 ## Git 運用（Claude Code）
 
