@@ -57,6 +57,11 @@
 - CI成功やAI reviewだけをmerge承認としない。人間が `Files changed` と検証結果を確認し、明示的に承認してからmergeする。auto-mergeは標準運用にせず、特定のPull Requestまたは用途で採用する場合は、その都度人間の明示承認を得る。
 - 今後のcommit author emailには、このrepositoryのlocal Git設定に登録したGitHub提供のnoreply emailを使う。実際のemail addressは追跡対象文書へ記載せず、email変更だけを目的とした既存commitの履歴書換えは行わない。
 
+## Security audit skill（Codex）
+
+- セキュリティに関する依頼では、Codex local / Cloudから `.agents/skills/security-audit/SKILL.md` のCloudflare公式 `security-audit` skillを利用できる。このrepository pathは `.claude/skills/security-audit/` のcanonical copyへのsymlinkであり、更新・reviewはcanonical copyだけに行う。
+- Skillを読み込んだだけではfull auditの実行許可にならない。full auditはユーザーが明示的に依頼した場合だけ実行し、skillにあるsandboxとlive probing禁止の規則に従う。
+- 脆弱性の詳細をpublic repositoryのcommit、Pull Request、Issueに記録しない。監査結果の扱いはDEC-065とDEC-066に従う。
 ## プロジェクト固有の前提
 
 - 初期製品はWebアプリケーションではなく、iOS・Android向けモバイルアプリケーションである。PC browser版と管理Webは初期実装に含めない。
