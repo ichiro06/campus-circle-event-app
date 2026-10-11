@@ -43,6 +43,7 @@
 - サークル評価項目（5項目のrating + 男女比カテゴリ）: DEC-062
 - S5検索のrating除外・男女比filterのUI選択肢・離散値chip複数選択: DEC-063
 - Claude Codeのsecurity audit skill: DEC-065
+- Codex local / Cloudのsecurity audit skill利用: DEC-066
 
 DEC-001からDEC-043には、検討経緯を残すため旧方針も記録している。状態が「置換」の決定内容や補足は現在の採用方針ではないため、上記の決定と各正式仕様を優先して読む。
 
@@ -959,6 +960,14 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - 旧方針: Claude Code用のsecurity audit手順・skillを定めていなかった。
 - 根拠: 一朗の依頼と承認（2026-10-11、Claude Projects thread）、PR #38、upstream README・LICENSE。
 
+## DEC-066: Codex local / CloudでCloudflare security-audit skillを使う
+
+- 日付: 2026-10-11
+- 状態: 採用
+- 決定内容: Cloudflare公式skillをCodex localとCodex Cloudの両方で使えるようにする。既存のcanonical copy `.claude/skills/security-audit/` を維持し、Codexのrepository skill discovery path `.agents/skills/security-audit/` から相対symlinkで公開する。二重管理はしない。Codexでは `$security-audit` で明示呼び出しでき、説明に合う依頼では自動選択の対象にもなる。Codex Cloudでは、この変更を含むrepository revisionを対象にしたtaskで利用する。
+- 決定理由: Codexはrepository-level skillsを検出し、repository内のskillsはCloud tasksでも利用できる。local user-level skillsはCloudへ同期されないため、このアプリに限ったskillはrepository内で共有する。
+- 旧方針: DEC-065はClaude Codeでの利用だけを対象としていた。
+- 根拠: ユーザー依頼（2026-10-11）、[Codex Skills](https://developers.openai.com/codex/build-skills)、[Codex Cloud environments](https://developers.openai.com/codex/environments/cloud-environments)、DEC-065、Cloudflare official upstream commit `c1c8a8c1471069fb0e188eeaff69b8e8db6564a8`。
 ## 要確認・次workへ引き継ぐ項目
 
 - サービスの正式名称、大学名・公開情報の利用確認

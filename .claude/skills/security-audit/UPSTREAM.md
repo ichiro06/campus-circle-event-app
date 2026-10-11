@@ -2,6 +2,8 @@
 
 このディレクトリは Cloudflare 公式の security-audit skill を無改変で取り込んだもの（`UPSTREAM.md` を除く）。
 
+Codexのrepository skill path `.agents/skills/security-audit/` は、このcanonical copyへの相対symlinkである。skillの更新とreviewはこのdirectoryだけに行い、Codex aliasは自動的に同じ内容を参照する。
+
 - 取得元: https://github.com/cloudflare/security-audit-skill （`skills/security-audit/`）
 - 取り込んだ commit: `c1c8a8c1471069fb0e188eeaff69b8e8db6564a8`（2026-09-14）
 - License: MIT（同梱の `LICENSE`、Copyright (c) 2025-2026 Cloudflare, Inc.）
