@@ -61,6 +61,13 @@ Notion を読めない環境（クラウドセッションで Notion connector �
 - 仕様・構成・手順を変えた場合は関連 docs と `docs/decisions.md` を更新する。
 - 報告は「確認した事実 / 変更内容 / 検証結果 / 未確認・未実施 / 人間の判断が必要な事項」を分ける。
 
+## Security audit skill
+
+- `.claude/skills/security-audit/` に Cloudflare 公式の security-audit skill（MIT）を同梱している。repo に含まれるため、ローカル・クラウドどちらの Claude Code セッションでも自動で読み込まれる。取得元と更新手順は同ディレクトリの `UPSTREAM.md`。
+- 「security audit this codebase」「backend/ の脆弱性を探して」等の依頼で起動する。全工程（full audit mode）は明示的に audit を依頼したときだけ実行される。
+- 出力先の既定は repo 外の `~/security-audit-skill/<repo-name>/run-<N>`。本 repository は公開のため、audit 結果（脆弱性の詳細）を commit・PR・Issue に載せない。クラウドセッションの `~` はセッション終了で消えるため、残す必要がある結果は公開されない場所へ移す。
+- 本番・共有環境（Supabase / Render 等）への probe はしない（skill 自体も禁止している）。
+
 ## ローカルとクラウドの違い
 
 - ローカルの untracked / ignored file（`backend/.env`、`mobile/.env.local` 等）、user settings、memory がクラウドへ自動的に引き継がれるとは仮定しない。必要な file・environment variable・authentication は、secret value を表示せず、対象環境で存在を確認する。
