@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "build/**",
     "mobile/**",
     "next-env.d.ts",
+    // Vendored third-party Claude Code skills (upstream code, not app code).
+    ".claude/skills/**",
   ]),
 ]);
 
