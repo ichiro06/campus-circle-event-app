@@ -1,6 +1,6 @@
 # 技術・設計上の決定
 
-最終更新日: 2026-10-07（DEC-063: S5検索のrating除外・男女比filter公開範囲・離散filter UIを同期）
+最終更新日: 2026-10-11（DEC-065: Cloudflare security-audit skillの導入を記録）
 
 この文書は、過去の方針と最新方針を混同しないための決定記録である。旧方針を消さず、何から何へ変更したかを残す。環境構築だけでは判断できない内容は「未確定」とする。
 
@@ -42,6 +42,7 @@
 - most_favoritedの集計対象・段階的不正対策・安定順序・pagination: DEC-061
 - サークル評価項目（5項目のrating + 男女比カテゴリ）: DEC-062
 - S5検索のrating除外・男女比filterのUI選択肢・離散値chip複数選択: DEC-063
+- Claude Codeのsecurity audit skill: DEC-065
 
 DEC-001からDEC-043には、検討経緯を残すため旧方針も記録している。状態が「置換」の決定内容や補足は現在の採用方針ではないため、上記の決定と各正式仕様を優先して読む。
 
@@ -948,6 +949,15 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - 男女比UIの最終表示文言と、DEC-062のbalanced意味記述との整合確認
 - 5 ratingの尺度・UI最終文言を確定した後の検索利用の再検討
 - personalized Home、recommendation、favorite / view、fraud、release NFR、media、auth、monetization
+
+## DEC-065: Cloudflare security-audit skillをClaude Codeに導入する
+
+- 日付: 2026-10-11
+- 状態: 採用
+- 決定内容: Cloudflare公式のsecurity-audit skill（https://github.com/cloudflare/security-audit-skill 、MIT）を無改変で `.claude/skills/security-audit/` に同梱し、ローカル・クラウドどちらのClaude Codeでも本repositoryを開けば使える状態にする。取得元commitと更新手順は同ディレクトリの `UPSTREAM.md` に記録する。vendored codeはルートESLintの対象外とする。あわせて、開発者のMacのuser-level（`~/.claude/skills/`）にも導入する。audit結果（脆弱性の詳細）は公開repositoryのcommit・Pull Request・Issueに載せず、本番・共有環境（Supabase / Render等）へのprobeは行わない。
+- 決定理由: 脆弱性によるサイバー攻撃被害を防ぐため、実装の各段階でsource-firstのsecurity auditを繰り返し実行できるようにする。repositoryに同梱するとクラウドセッションでもcloneだけで読み込まれ、versionをPull Requestで管理できる。同梱scriptはNode標準moduleだけを使い外部送信がないことを確認した。本repositoryは公開のため、未修正の脆弱性情報を公開しない運用を併せて定める。
+- 旧方針: Claude Code用のsecurity audit手順・skillを定めていなかった。
+- 根拠: 一朗の依頼と承認（2026-10-11、Claude Projects thread）、PR #38、upstream README・LICENSE。
 
 ## 要確認・次workへ引き継ぐ項目
 
