@@ -1,6 +1,6 @@
 # 要件定義の進捗
 
-- 最終更新日: 2026-10-06
+- 最終更新日: 2026-10-07
 - 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`は公開read範囲の実装・検証が完了（public read slice COMPLETE。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではない）。Personalized Home Contract、Home Production Ready、External Beta / Releaseは未決事項が残りBLOCKED（`docs/coding-readiness.md` 3.1）
 
 ## 1. 情報源
@@ -33,11 +33,21 @@
 - category・tagは運営master、主categoryは1つ、tagは複数とする。
 - ratingは団体自己申告の5指標（integer 1～5、`null`は未回答）。男女比はcategorical value（`null`は未回答、`not_disclosed`は明示的な非公開で別状態）で、個人genderを収集しない（DEC-062、2026-10-06）。
   - FR-017 rating contract（保持・表示仕様）: **RESOLVED**。ただしFR-017全体は**PARTIAL**のままであり、DEC-062の成立は全体完了ではない。
-  - 5 ratingの検索filter / sort / ranking利用: **UNRESOLVED**（別Human Decision）。男女比はcategorical filterとして扱う（具体仕様は未決）。
+  - 5 ratingの検索filter / sort / ranking利用: S5 MVPでは**使用しない（EXCLUDED / RESOLVED FOR S5 MVP）**（DEC-063、2026-10-07）。保持とCircle Detail表示は維持し、将来の検索利用は別Human Decision。男女比はcategorical filterで、Search UIの選択肢は回答済み4 categoryのみ（下記「検索（S5）」）。
   - 「仲の良さ」「初心者歓迎度」は初期ratingから除外。
 - 閲覧1点、お気に入り5点、興味3点。同一user・circleの閲覧は30分に1回。
 - 上位10件は安定sort、以降はuser・JST日付・filterで決定的shuffleとする。
 - 生年月日は初期収集しない。大学・学年は任意、閲覧履歴は明示操作後に最大20件または90日。
+
+### 検索（S5、DEC-063、2026-10-07）
+
+- DEC-063（S5検索のrating除外・男女比filter公開範囲・離散filter UI）: **RESOLVED**（Human Approved: YES）。
+- HD-S1 / HD-S2 / HD-S3: **RESOLVED**。
+  - 5 rating S5 search: **EXCLUDED / RESOLVED FOR S5 MVP**（search filter / sort / rankingに使わない。保持・Circle Detail表示は維持。W4 rollbackではない）。
+  - gender balance Search UI scope: **RESOLVED**（回答済み4 categoryのみ。`not_disclosed`と`null`はUI filter optionに出さない。filter未指定時は`null`・`not_disclosed`を除外しない）。
+  - camp / member / activity filter UI: **RESOLVED**（`campFrequencyCode` / `memberCountBand` / `activityFrequencyCode`は離散値chip複数選択。レンジスライダーはS5 MVPで不採用）。
+- same-filter OR / different-filter ANDは既存API contractであり、DEC-063で新規決定していない。backend APIのAPI capability（`genderBalanceCode`が`not_disclosed`を受理できること等）は変更していない。
+- S5_SEARCH_ENTRY_GATE: **READY_WITH_SCOPE_LIMIT**（維持）。S5全体の完了（COMPLETE / READY_ALL）ではない。
 
 ### API・DB
 
@@ -75,6 +85,7 @@
 | circle auto deletion | 初期対象外 |
 | paid boost / advertising | 構想のみ。自然推薦に混ぜない |
 | MARCH / 全大学 | 将来phase |
+| S5検索の残課題 | 未決（DEC-063では決めない）: area structured filter、annual cost filter、tag master endpoint / vocabulary、timeBand all_day / irregular semantics。男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認、rating尺度・UI最終文言確定後の検索利用の再検討も残る |
 
 ## 4. 人の操作・判断が残るもの
 
@@ -103,7 +114,7 @@
    - B. Personalized Home Contract Readiness: **BLOCKED**（A2、R1、R2、view signalに対するmanager / operator除外scopeが未決）
    - C. Home Production Ready: **BLOCKED**（Gate Bに加え、fraud / abnormal signalの具体仕様が必要。DEC-061 D2のrelease gate、OPEN）
    - D. External Beta / Release Readiness: **BLOCKED**（fraud具体仕様、most_favorited NFR分類、production-equivalent性能検証、外部project・identifier・store等、既存release security gates）
-   - 未決のまま: A2、R1、R2、view signalに対するmanager / operator除外scope、H10、most_favorited NFR分類はUNRESOLVED、cursor confidentialityはFOLLOWUP、性能follow-upとfraud具体仕様はOPEN。5 ratingの検索filter / sort / rankingはUNRESOLVED（DEC-062で別Human Decisionへ分離）。
+   - 未決のまま: A2、R1、R2、view signalに対するmanager / operator除外scope、H10、most_favorited NFR分類はUNRESOLVED、cursor confidentialityはFOLLOWUP、性能follow-upとfraud具体仕様はOPEN。5 ratingの検索filter / sort / rankingは、DEC-062で別Human Decisionへ分離され、DEC-063（2026-10-07）でS5 MVPでは使用しないと確定済み（将来の検索利用は別Human Decision）。
 3. `W4 Public Circle Slice`: 公開read範囲の実装と、自動検証・iOS Simulator・Android Emulatorの主要flow確認が完了（COMPLETE。実装状況であり製品要件の承認ではない。VoiceOver実操作とTalkBackの読み上げ音声は未確認）。未ログインHome（`sort=most_favorited`）、Search public list、Circle card、Circle detailを両Simulatorで接続する。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではなくpartial implementationとして扱い、personalized Home、view write、favorite write、interest scoring、決定的shuffle、fraud検知、manager / operator機能は含めない。DEC-062（2026-10-06）によるW4のrollbackはなく、W4 COMPLETEとFR-017全体PARTIALを維持する。
 4. `View Definition Gate`: View定義は正式文書間で未解決である。解決するまでcircle view write、view history behavior、viewをsignalとして使うrecommendation logicは実装しない。
 5. 外部projectが必要になる直前にowner・identifier・planを確定する。

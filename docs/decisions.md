@@ -1,6 +1,6 @@
 # 技術・設計上の決定
 
-最終更新日: 2026-10-06（DEC-062: サークル評価項目（FR-017）を5項目のrating + 男女比カテゴリに確定する方針を同期）
+最終更新日: 2026-10-07（DEC-063: S5検索のrating除外・男女比filter公開範囲・離散filter UIを同期）
 
 この文書は、過去の方針と最新方針を混同しないための決定記録である。旧方針を消さず、何から何へ変更したかを残す。環境構築だけでは判断できない内容は「未確定」とする。
 
@@ -41,6 +41,7 @@
 - commit author email: DEC-060
 - most_favoritedの集計対象・段階的不正対策・安定順序・pagination: DEC-061
 - サークル評価項目（5項目のrating + 男女比カテゴリ）: DEC-062
+- S5検索のrating除外・男女比filterのUI選択肢・離散値chip複数選択: DEC-063
 
 DEC-001からDEC-043には、検討経緯を残すため旧方針も記録している。状態が「置換」の決定内容や補足は現在の採用方針ではないため、上記の決定と各正式仕様を優先して読む。
 
@@ -842,6 +843,7 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 
 - 男女比（`gender_balance_code`）: categorical filterとして扱う。
 - 5 rating: 検索filter、検索sort、rankingへの利用は**UNRESOLVED**とし、別Human Decisionで決める。`docs/requirements.md`を含む正式文書で、5 ratingを検索条件として確定済みと扱わない。
+- [過去] 本Decisionが未決として分離した、男女比categorical filterの具体仕様と5 ratingの検索利用は、DEC-063（2026-10-07）でS5 MVPについて確定した。本Decisionの当時の記述として保持する。
 
 ### 既存実装への影響
 
@@ -851,6 +853,101 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 ### 本Decisionで決めないもの（未決）
 
 5 ratingの検索filter・sort・ranking利用と方式（UNRESOLVED）、男女比categorical filterの具体仕様、ratingの各段階の意味とUI最終文言、manager editとAPI write、実データの投入方法、男女比の割合閾値、ratingの非公開状態、除外項目（仲の良さ・初心者歓迎度）の再導入可否。
+
+## DEC-063: S5検索のrating除外・男女比filter公開範囲・離散filter UIを確定する
+
+- 日付: 2026-10-07
+- 状態: 採用（Notion意思決定ログ上のステータスは、同DBに「採用」optionがないため既存の完了系option「決定」である。DEC-062と同じ扱い）
+- 決定内容: Human Decision（2026-10-07、承認者: 一朗、Human Approved: YES）。S5検索について、(D1) 5 ratingをS5 MVPのsearch filter / sort / rankingに使わない、(D2) 男女比filterのSearch UI選択肢を回答済み4 categoryに限る、(D3) 合宿・規模・活動頻度のSearch UIを離散値のchip複数選択にする、の3点を確定する。
+- 決定理由: rating尺度の具体的意味はprovisional / non-normativeであり、現時点でfilter方式を固定すると将来の尺度確定時にAPI / UI / data semanticsの再設計が発生し得る。回答済み4 categoryと離散値filterは既存backendのfilter contractでそのまま利用できる。
+- 旧方針: DEC-062は5 ratingの検索filter / sort / ranking利用を**UNRESOLVED**とし、男女比categorical filterの具体仕様（選択UI、複数選択、`null`と`not_disclosed`の扱い）を別Human Decisionとしていた。第1回要件定義議事録は合宿・規模・活動頻度をレンジスライダーとしていた。これらのS5 MVPにおける扱いはDEC-063で置換する。DEC-062・議事録の当時の記述は履歴として保持する。
+- 根拠: Notion DEC-063（意思決定ログ）、Notion FR-004、Notion FR-017（本文変更なし。関連Decision relationのみ追加）、第1回要件定義議事録（`[過去]`注記のみ追加）。本repositoryへの同期は新しいHuman Decisionではない。
+
+### Background
+
+- DEC-062で、5 rating field set、integer 1～5、`null`の意味、団体による自己申告、男女比categoryまでは決定済みだった。
+- 次の3点は未決だった。
+  - 5 ratingのsearch / filter / sort / ranking利用
+  - 男女比categorical filterの具体仕様
+  - 合宿・規模・活動頻度のUI形式
+- FR-004の監査（Human提供の監査結果）で次を確認済みである。
+  - backendには`genderBalanceCode` filterが既に存在する。
+  - same-filter OR / different-filter ANDは既存API contractである。
+  - 5 rating filterはbackend・mobileとも未実装である。
+  - rating尺度はprovisional / non-normativeである。
+  - 合宿・規模・活動頻度はbackend側に離散値filterが既に存在する。
+
+### D1: 5 ratingのS5検索利用（HD-S1 = A）
+
+- S5 MVPでは、5 rating（飲み会頻度、賑やかさ、本気度、出席自由度、ガクチカにつながる度）をsearch filter、sort、rankingに使わない。
+- ratingは次までとする。
+  - 保持
+  - Circle Detailでの表示
+- rating各段階の具体的尺度とUI最終文言を別Human Decisionで確定した後、検索利用を再検討する。
+- 本Decisionは、rating fieldの削除、rating表示の削除、W4 rollbackを意味しない。
+
+### D2: 男女比filter（HD-S2 = C）
+
+- 男女比はcategorical filterとして提供する。
+- Search UIで選択できるのは、回答済みの次の4 categoryだけである。
+
+| 値 | UI表示（相当。最終文言は未確定） |
+| --- | --- |
+| `women_majority` | 女性が多い |
+| `balanced` | おおむね均等 |
+| `men_majority` | 男性が多い |
+| `mixed_or_other` | 多様・その他 |
+
+- UI表示は「相当」であり、最終表示文言は既存仕様との整合を確認して別途確定する。DEC-062のbalancedの意味記述は「均衡している」であり、上表の「おおむね均等」とは表記が異なる。この差は整合確認の対象であり、本Decisionでは統一しない。
+- Search UIのfilter optionに出さない値: `not_disclosed`、`null`。
+- `not_disclosed`をenum・API・schemaから削除しない。`null`と`not_disclosed`を統合しない。DEC-062のsemantics（`null` = 団体が未回答、`not_disclosed` = 団体が明示的に非公開を選択、`mixed_or_other` = 回答済みのその他・多様な構成）は変更しない。
+- filter未指定時は、`women_majority`、`balanced`、`men_majority`、`mixed_or_other`、`not_disclosed`、`null`のすべてを通常どおり検索対象に含める。`null`と`not_disclosed`のCircleを除外しない。
+- filter指定時だけ、選択した回答済みcategoryへ絞る。
+- 本Decisionが定めるのはproduct UIの選択肢の公開範囲（UI exposure）である。backend APIが`genderBalanceCode`として受理する値（API capability）は変更しない。`not_disclosed`をAPIが受理できることは、UIに出さないことと矛盾しない。
+
+### D3: 合宿・規模・活動頻度のUI（HD-S3 = A）
+
+- 次のSearch UIは、レンジスライダーではなく離散値のchip複数選択とする。
+  - `campFrequencyCode`
+  - `memberCountBand`
+  - `activityFrequencyCode`
+- レンジスライダーはS5 MVPでは採用しない。将来検討する場合は、bandとの対応規則を含めて別Human Decisionとする。
+- 複数選択の意味は既存API contractどおり、same-filter OR / different-filter ANDとする。backendの既存離散値filter contractは変更せず、新しいfilter semanticsは作らない。
+
+### Rationale
+
+- D1: rating尺度の具体的意味はprovisional / non-normativeで、2・4等の意味も正式確定していない。現時点でfilter方式を固定すると、将来の尺度確定時にAPI / UI / data semanticsの再設計が発生し得るため、MVP検索から外す。
+- D2: 回答済み4 categoryは既存backendの`genderBalanceCode` filterでそのまま利用できる。`null`検索には新API contractが必要になる。`not_disclosed`は団体が非公開を選んだ状態であり、それ自体を利用者向け検索軸にしないが、通常検索からは除外しない。
+- D3: backendは既に離散値を受け取る。chip複数選択なら既存のOR / AND contractをそのまま使える。レンジスライダーではbandとの対応規則という追加仕様が必要になるため、S5 MVPでは採用しない。
+
+### Existing Contract Not Re-Decided
+
+次は既存の正式契約であり、本Decisionでは新しく決めていない。`docs/api-contract.md`を変更していない。
+
+- same-filter: OR / different-filter: AND（`docs/api-contract.md`）
+- cursor: normalized filter + sort bound、signed、opaque、24時間
+- pagination: 既存API contractを維持
+- `genderBalanceCode`: backend capability既存
+- DEC-062: 5 rating + 男女比category contract（保持・表示）
+
+### S5 Status
+
+- 本Decisionで解消するHuman Decision: HD-S1、HD-S2、HD-S3。
+- S5_SEARCH_ENTRY_GATE = **READY_WITH_SCOPE_LIMIT**を維持する。本Decisionだけを理由にS5全体をCOMPLETE / READY_ALLとしない。
+
+### Out of Scope / Follow-up（本Decisionでは決めない）
+
+- rating各段階の正式尺度、rating UI最終文言、ratingの将来のfilter方式、rating sort / rankingの将来仕様
+- 男女比の割合閾値
+- manager edit、API write、実データ投入
+- S5に残る未決事項（FR-004）
+  - area structured filter（都道府県・市区町村・沿線・駅）とarea filter API
+  - annual cost filterとannual cost filter API
+  - tag master endpoint / vocabulary
+  - timeBand all_day / irregular semantics
+- 男女比UIの最終表示文言と、DEC-062のbalanced意味記述との整合確認
+- 5 ratingの尺度・UI最終文言を確定した後の検索利用の再検討
+- personalized Home、recommendation、favorite / view、fraud、release NFR、media、auth、monetization
 
 ## 要確認・次workへ引き継ぐ項目
 
@@ -868,6 +965,7 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - Notionの議事録ページ更新をrepository docsへ同期する担当、確認頻度、差分レビューの運用
 - fraud / abnormal favorite exclusionの具体仕様（別Human Decision。DEC-061 D2のrelease gate: Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前）
 - favoriteCountのAPI response公開（H10）、cursor payloadの機密性（現行codecは署名のみでpayloadはclientから読める。`docs/api-contract.md`参照。DEC-061では決めていない、別Human Decision候補）、most_favoritedのNFR分類
-- 5 ratingの検索filter・sort・rankingへの利用と方式（別Human Decision。DEC-062では決めていない。UNRESOLVED）、男女比categorical filterの具体仕様、ratingの各段階の意味とUI最終文言、評価項目のmanager edit・API write、実データの投入方法
+- 5 ratingの検索利用の将来方式（S5 MVPでは使用しない。DEC-063）、ratingの各段階の意味とUI最終文言、評価項目のmanager edit・API write、実データの投入方法
+- S5検索の残課題（DEC-063では決めていない）: area structured filter、annual cost filter、tag master endpoint / vocabulary、timeBand all_day / irregular semantics、男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認
 
 大学Google Workspace限定OAuthの検証は引き継がない。一般Google OAuthとiOSのSign in with Appleはinitial認証として実装対象である。
