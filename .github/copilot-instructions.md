@@ -1,6 +1,6 @@
 # GitHub Copilot instructions
 
-このリポジトリの開発ルールの正本は `AGENTS.md` と `docs/` である。本ファイルは GitHub Copilot（Chat、cloud agent、code review）の入口と補足であり、`AGENTS.md` と矛盾する場合は `AGENTS.md` を優先する。`AGENTS.md` 冒頭は「Codex向け」と記載しているが、GitHub Copilot も同じルールに従う。AI agent間の役割分担は `docs/development-workflow.md` の「14. AI coding agentの役割分担」に従う。
+このリポジトリの開発ルールの正本は `AGENTS.md` と `docs/` である。本ファイルは GitHub Copilot（Chat、cloud agent、code review）の入口と補足であり、`AGENTS.md` と矛盾する場合は `AGENTS.md` を優先する。AI agent間の役割分担は `docs/development-workflow.md` の「14. AI coding agentの役割分担」に従う。
 
 ## 作業開始時
 

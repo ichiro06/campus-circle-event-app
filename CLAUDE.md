@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-このリポジトリの開発ルールの正本は `AGENTS.md` と `docs/` である。本ファイルは Claude Code（ローカル・クラウド共通）の入口と補足であり、`AGENTS.md` と矛盾する場合は `AGENTS.md` を優先する。`AGENTS.md` 冒頭は「Codex向け」と記載しているが、Claude Code も同じルールに従う。
+このリポジトリの開発ルールの正本は `AGENTS.md` と `docs/` である。本ファイルは Claude Code（ローカル・クラウド共通）の入口と補足であり、`AGENTS.md` と矛盾する場合は `AGENTS.md` を優先する。
 
 @AGENTS.md
 
