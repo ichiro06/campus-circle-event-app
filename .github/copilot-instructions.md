@@ -6,6 +6,7 @@
 
 - `AGENTS.md` と、作業に関係する `docs/` を読んでから変更する。
 - Notion は読めない前提で作業する。`docs/requirements.md` は Notion 要件の同期スナップショットであり、要件の追加・変更の根拠にしない。
+- S5検索（FR-004）に関わる Issue では `docs/search-s5-spec.md` を読む（`AGENTS.md` 参照）。仕様が承認済みであることは実装済みを意味せず、仕様書にない API parameter・endpoint・DB migration を独断で実装しない（上記の担当範囲の制約は変更しない）。
 - Issue に根拠（要件ID、docs の章）と完了条件がない場合は実装を始めず、不足を Issue または Pull Request に書いて止まる。
 - 文書同士、または文書とコードが矛盾する場合は、片方に合わせて直さず、差異・根拠・影響を報告する。
 

@@ -135,7 +135,7 @@ accountをphysical deleteした場合、`favorites.user_id`の`ON DELETE CASCADE
 | member_count_band | TEXT | no | `1_10`, `11_30`, `31_80`, `81_150`, `151_plus`, `not_disclosed` |
 | camp_frequency_code | TEXT | no | `none`, `once_year`, `twice_year`, `three_plus_year`, `unknown` |
 | activity_frequency_code | TEXT | no | `less_monthly`, `monthly`, `two_three_monthly`, `weekly`, `two_three_weekly`, `four_plus_weekly`, `irregular` |
-| annual_cost_min_yen / max_yen | INTEGER | no | 0以上、min <= max |
+| annual_cost_min_yen / max_yen | INTEGER | no | 0以上、min <= max。意味は団体が自己申告する入会初年度の標準的な年間費用（5.3.1、DEC-066） |
 | rating_* | SMALLINT | no | 後述の4指標とcareer。1～5。`NULL`は未回答（6節、DEC-062） |
 | gender_balance_code | TEXT | no | 後述。`NULL`は未回答、`not_disclosed`は明示的な非公開。個人genderは保持しない（6節、DEC-062） |
 | submitted_by_user_id | UUID | no | 審査提出者 |
@@ -143,13 +143,23 @@ accountをphysical deleteした場合、`favorites.user_id`の`ON DELETE CASCADE
 | review_note | TEXT | no | managerへ返す理由。証拠原本を含めない |
 | created_at / updated_at | TIMESTAMPTZ | yes | common rule |
 
+#### 5.3.1 年間費用summaryの意味と検索（DEC-066、2026-10-13）
+
+- `annual_cost_min_yen` / `annual_cost_max_yen`は、団体が自己申告する「入会初年度の標準的な年間費用」を表す。通常の活動参加に必要な費用を対象とし、必須の入会費・会費等を含め、任意イベント等の費用を除く。`circle_costs`の詳細費用項目からの自動合算は行わない。
+- 検索上の状態は、確定額（下限と上限が同額）、金額範囲（下限と上限が異なる）、未回答（0円とは区別）、上限不明（下限は分かるが上限を保証できない）、0円（費用がかからないと団体が回答）を区別する。検索方式はcontainmentである（`docs/search-s5-spec.md` 4.2）。
+- 未決（設計課題）: 上記の状態を現行の2つのnullable列でどう表すか（特に「上限不明」と「未回答」）、上端（20,000円以上）を超える値の扱い、入力・表示・NULLのDB詳細。`circle_costs.amount_max_yen`のNULLには別の意味が存在し得るため、費用明細のNULL意味論は変更せず、年間summaryの意味との違いを設計課題として残す。
+
 ### 5.4 `circle_revision_tags`
 
 `revision_id`と`tag_id`の複合PK。cardに出す`is_featured`と`display_order`を持ち、featuredは最大5件とする。
 
+`is_featured`はCircle側のfeatured tag（サークルが自分のページで強調するタグ）であり、運営が全体の人気タグとして指定する機能とは別概念である。タグマスター`tags`は`display_order`を持つが、active / inactiveを表す列は現在ない。公開タグ一覧API（有効なタグを`display_order`順に提示し、非アクティブなタグは表示しない。DEC-066 D3）の実装時に、非アクティブの表現と既存revisionとの関係を設計する（未決）。
+
 ### 5.5 `activity_schedules`
 
 revision単位で`weekday`（1=月～7=日、null=不定期）、`time_band`（`morning`, `daytime`, `evening`, `night`, `all_day`, `irregular`）、任意の開始・終了時刻、noteを持つ。終了は開始より後とする。
+
+検索上の意味（DEC-066 D4、2026-10-13）: `all_day`の活動枠は午前・昼・夕方・夜（`morning`、`daytime`、`evening`、`night`）の各時間帯検索に一致し、`irregular`は通常の4つの時間帯検索に一致しない（時間帯filter未指定時は除外しない）。曜日と時間帯が同時に指定された場合は、同一の`activity_schedules`レコードで判定する。`time_band`にenum値を追加しない。
 
 ### 5.6 `activity_locations`
 

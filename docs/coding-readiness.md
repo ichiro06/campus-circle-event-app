@@ -83,6 +83,29 @@ personalized Home、view write、favorite write、interest scoring、A2の決定
 | 性能follow-up | OPEN | W4開発開始・public read実装は止めない。external beta / release前に、production-equivalent環境で正式dataset + concurrencyの再測定が必要 |
 | fraud具体仕様 | OPEN | W4 public read start blockerではない。Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前に必要（DEC-061 D2を維持） |
 
+### 3.2 S5検索の実装可能範囲と残る設計課題（DEC-066、2026-10-13）
+
+S5検索のエリア・年間費用・タグ・活動時間帯は、2026-10-13のHuman Decision（DEC-066）で仕様方針が確定した（`S5_DECISIONS = HUMAN_APPROVED`）。共通仕様は`docs/search-s5-spec.md`を参照する。これは意思決定の状態であり、実装完了ではない（`S5_IMPLEMENTATION = NOT_COMPLETE`）。`S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`を維持し、S5全体のCOMPLETE / READY_ALLは宣言しない。
+
+実装PRで着手できる範囲（承認済みの意味論に限る）:
+
+- エリア: 都道府県・市区町村の構造化filter（同一活動場所レコードでの一致、オンラインのみの場所は地理的filterに不一致、未指定時は除外しない）。沿線・駅は後続段階
+- 年間費用: 自己申告の入会初年度の標準的な年間費用に対するcontainment検索と範囲スライダー
+- タグ: 公開タグ一覧API、通常タグ7語彙の複数選択（既存`tagId` filterを利用する方向）
+- 活動時間帯: `all_day` / `irregular`の意味論と、曜日×時間帯の同一activity schedule判定（現行filterは独立判定で、変更が必要）
+
+実装前に設計で解消するblocker / follow-up（DEC-066では決めていない。推測で実装しない）:
+
+| 項目 | 内容 |
+| --- | --- |
+| 年間費用の欠損表現 | `circle_revisions.annual_cost_min_yen` / `annual_cost_max_yen`はともにnullableで、「上限不明」「未回答」「0円」をどう表すか未決。`circle_costs.amount_max_yen`のNULL意味論は変更しない |
+| 年間費用の上端 | 「20,000円以上」を超える値の扱い、上限不明・未回答データと無制限予算の一致条件、入力・表示 |
+| タグ一覧API | endpoint名、response形式、seed方法。現在の`tags`テーブルにはactive / inactiveを表す列がなく、非アクティブタグと既存revisionの関係も未決 |
+| エリアAPI・DB | filterのAPI parameter名、endpoint、構造化の方法（現在は自由記述の都道府県・市区町村・最寄駅） |
+| 沿線・駅 | 開発日、リリース日、鉄道マスターの提供元、ライセンス、費用（未決） |
+| 契約変更 | 上記の追加は`/api/v1`のAPI契約・OpenAPI・mobile生成型の更新を伴う。Authentication / Authorization、DB migration、API契約変更はCopilotに単独で任せない（`docs/development-workflow.md` 14章） |
+| 0件時の導線 | FR-005の「人気タグへの導線」とD3の関係は未確認。3.1のとおりpopular tag導線は未実装 / deferred |
+
 ## 4. 現在ユーザー操作・外部契約が必要な事項
 
 - GitHub CLI: 2026-09-15に`ichiro06`として認証とGitHub API接続を確認済み。対象repositoryはPublic、権限はADMIN、default branchは`main`。

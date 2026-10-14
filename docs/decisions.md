@@ -1,6 +1,6 @@
 # 技術・設計上の決定
 
-最終更新日: 2026-10-11（DEC-065: Cloudflare security-audit skillの導入を記録）
+最終更新日: 2026-10-14（DEC-066: S5検索のエリア段階実装・年間費用・通常タグ検索・活動時間帯を記録）
 
 この文書は、過去の方針と最新方針を混同しないための決定記録である。旧方針を消さず、何から何へ変更したかを残す。環境構築だけでは判断できない内容は「未確定」とする。
 
@@ -43,6 +43,7 @@
 - サークル評価項目（5項目のrating + 男女比カテゴリ）: DEC-062
 - S5検索のrating除外・男女比filterのUI選択肢・離散値chip複数選択: DEC-063
 - Claude Codeのsecurity audit skill: DEC-065
+- S5検索のエリア段階実装・年間費用・通常タグ検索・活動時間帯: DEC-066（共通仕様は`docs/search-s5-spec.md`）
 
 DEC-001からDEC-043には、検討経緯を残すため旧方針も記録している。状態が「置換」の決定内容や補足は現在の採用方針ではないため、上記の決定と各正式仕様を優先して読む。
 
@@ -946,6 +947,7 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
   - annual cost filterとannual cost filter API
   - tag master endpoint / vocabulary
   - timeBand all_day / irregular semantics
+  - [過去] 上記4項目の仕様方針は、DEC-066（2026-10-13）で確定した。DEC-063の当時の記述として保持する。現在有効な仕様はDEC-066と`docs/search-s5-spec.md`を参照する
 - 男女比UIの最終表示文言と、DEC-062のbalanced意味記述との整合確認
 - 5 ratingの尺度・UI最終文言を確定した後の検索利用の再検討
 - personalized Home、recommendation、favorite / view、fraud、release NFR、media、auth、monetization
@@ -958,6 +960,76 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - 決定理由: 脆弱性によるサイバー攻撃被害を防ぐため、実装の各段階でsource-firstのsecurity auditを繰り返し実行できるようにする。repositoryに同梱するとクラウドセッションでもcloneだけで読み込まれ、versionをPull Requestで管理できる。同梱scriptはNode標準moduleだけを使い外部送信がないことを確認した。本repositoryは公開のため、未修正の脆弱性情報を公開しない運用を併せて定める。
 - 旧方針: Claude Code用のsecurity audit手順・skillを定めていなかった。
 - 根拠: 一朗の依頼と承認（2026-10-11、Claude Projects thread）、PR #38、upstream README・LICENSE。
+
+## DEC-066: S5検索のエリア段階実装・年間費用・通常タグ検索・活動時間帯の仕様を確定する
+
+- 日付: 2026-10-13
+- 状態: 採用（Notion意思決定ログ上のステータスは、同DBに「採用」optionがないため既存の完了系option「決定」である。DEC-062〜DEC-065と同じ扱い）
+- 決定内容: Human Decision（2026-10-13、承認者: 一朗、ゆうすけ、Human Approved: YES）。HD-2（年間費用）とHD-4（活動時間帯）は先行して一朗が承認済み、HD-1（エリア）とHD-3（タグ）はゆうすけとの協議を経て2026-10-13に正式承認された。次の4領域を確定する。
+  - (D1) エリア検索は都道府県・市区町村を先行実装し、沿線・駅を後続段階で実装する（削除ではない）
+  - (D2) 年間費用は団体の自己申告による入会初年度の標準的な年間費用とし、検索方式はcontainment、UIは範囲スライダー
+  - (D3) 初期は通常タグ検索（7語彙）とし、人気タグの特別扱いは初期実装しない
+  - (D4) `TimeBand`の既存値を維持し、`all_day` / `irregular`の検索意味論と、曜日×時間帯の同一activity schedule判定を固定する
+- 決定理由: 沿線・駅は路線データ・駅と路線の対応・駅名正規化・外部データ導入・API/UI開発が別途必要なため、要件を削除せず実装順序を分ける。年間費用はcontainmentにより、利用者の予算内に確実に収まるサークルだけを返す。初期のタグ語彙は7種類で一覧から全件選択でき、人気の定義・実データ・運営の選定基準が未整備のため、人気タグの特別扱いは見送る。`TimeBand`の既存enumを変えずに検索上の意味を固定し、誤一致を防ぐ。
+- 旧方針: FR-004と第1回要件定義議事録は、エリア4項目（都道府県・市区町村・沿線・駅）、年間費用（0円〜20,000円以上）、人気ハッシュタグ、活動時間帯を定め、DEC-063はこれらをS5のFollow-upとして残していた。人気ハッシュタグは初期リリースでは通常タグ検索に置き換わる。議事録・FR-004の当時の記述は履歴として保持する。
+- 根拠: Notion DEC-066（意思決定ログ）、Notion FR-004（完成条件・対象外 / 要確認を更新）、第1回要件定義議事録（変更注記のみ追加）。本repositoryへの同期は新しいHuman Decisionではない。
+
+### Existing Decisions Not Changed
+
+- DEC-062: 5 ratingの保持仕様、男女比category、`null`と`not_disclosed`の区別
+- DEC-063: S5 MVPで5 ratingを検索filter / sort / rankingに使わない。男女比Search UIは回答済み4 categoryのみ。`not_disclosed`と`null`はfilter未指定時に除外しない。`campFrequencyCode` / `memberCountBand` / `activityFrequencyCode`は離散値chip複数選択。同一filter OR、異なるfilter AND。W4 COMPLETEに変更なし。FR-017 PARTIALを維持
+- API Contract: `/api/v1`、camelCase、cursor pagination、filter / sort binding、HMAC署名cursor、24時間のcursor期限、Problem Details、正規化したfilterに基づくcursor binding
+
+### D1: エリア検索（HD-1）
+
+- 実装範囲: 初期段階は都道府県・市区町村、後続段階は沿線・駅。沿線・駅は削除した要件ではなく、実装を後続段階へ移す要件である。
+- 同一filter内はOR、異なるfilter間はAND。
+- 都道府県と市区町村は、同一の活動場所レコードで一致を確認する。別々の活動場所レコードの値を組み合わせて誤一致させない。
+- オンラインのみの活動場所は地理的filterに一致させない。ただし地理的filter未指定時に除外しない。
+- 完了状態: 都道府県・市区町村の実装だけで、元のエリア検索Must要件をCOMPLETEにしない。沿線・駅が実装されるまでは元要件に対してPARTIALである。
+- 未決: 後続の具体的な開発日、リリース日、鉄道マスターの提供元、ライセンス、費用。推測で設定しない。
+
+### D2: 年間費用（HD-2）
+
+- 定義: 団体が自己申告する「入会初年度の標準的な年間費用」。通常の活動参加に必要な費用を対象とし、必須の入会費・会費等を含め、任意イベント等の費用を除く。詳細費用項目からの自動合算は行わない。
+- データの意味: 確定額（下限と上限が同額）、金額範囲（下限と上限が異なる）、未回答（0円とは区別）、上限不明（下限は分かるが上限を保証できない）、0円（費用がかからないと団体が回答）。
+- 検索方式: containment。サークルの年間費用範囲全体が、利用者の指定予算範囲内に収まる場合だけ一致する。例: 予算0〜10,000円のとき、5,000〜8,000円は一致、5,000〜30,000円は不一致、上限不明は有限予算には不一致、未回答は0円として扱わない。
+- UI: 0円〜20,000円以上を扱う範囲スライダー。「20,000円以上」の上端は単なる20,000円の固定上限ではない。DEC-063のレンジスライダー不採用は、合宿・規模・活動頻度の3 filterだけに適用し、年間費用のスライダーは不採用にしない。
+- 設計課題（本Decisionでは決めない）: 既存の`circle_revisions.annual_cost_min_yen` / `annual_cost_max_yen`はともにnullableである。既存の費用明細`circle_costs.amount_max_yen`のNULLには別の意味が存在し得る。既存の費用明細のNULL意味論は変更しない。年間summaryの意味との違いは設計課題として残す。
+
+### D3: タグ検索（HD-3）
+
+- 初期の通常タグ（7種類）: 初心者歓迎、留学生歓迎、兼サーOK、途中入部歓迎、友達作り、少人数、大会あり。複数選択でき、同一filter内はOR、異なるfilter間はAND。
+- 選択肢はモバイルにUUIDをハードコードせず、公開タグ一覧APIを設計・提供する。有効なタグを`display_order`順に提示し、非アクティブなタグは表示しない。既存の`tagId` filterを利用する方向とする。endpoint名、response形式、seed方法、非アクティブタグと既存revisionの関係は、既存API契約・DB設計を調べて実装段階で定める。
+- 人気タグ: 初期実装では、運営指定の人気タグの特別管理、人気タグ専用の検索UI、人気度による特別なランキング、人気判定のための新規集計を行わない。タグ検索自体の取りやめではない。
+- タグマスターと、Circle側のfeatured tag（サークルが自分のページでfeaturedにするタグ）を混同しない。運営者が全体の人気タグとして指定する機能とは別概念である。
+- 要件定義書との差分: FR-004の「人気ハッシュタグ」は、初期リリースでは通常タグ検索に置き換え、人気タグの特別扱いは初期スコープから除外する。再導入の時期は未決。人気タグ機能を提供しないまま、元の「人気タグ」要件をCOMPLETEにしない。
+
+### D4: 活動時間帯（HD-4）
+
+- `TimeBand`の既存値（`morning`、`daytime`、`evening`、`night`、`all_day`、`irregular`）を維持する。`afternoon`等のenum値を追加しない。
+- `all_day`の活動枠は、午前・昼・夕方・夜の各時間帯検索に一致する。
+- `irregular`は通常の4つの時間帯検索に一致しない。ただし時間帯filter未指定時に、`irregular`のサークルを除外しない。
+- 曜日と時間帯が同時に指定された場合は、同一のactivity scheduleレコードで条件を確認する。例: 「月曜日・朝」と「火曜日・夜」の予定を持つサークルは、「月曜日 かつ 夜」の検索に一致しない。`all_day`と曜日の組合せでも同じ原則とする。
+
+### 現在の実装状態との関係（事実の記録。本Decisionと本repositoryの同期は実装を行わない）
+
+- 公開Circle一覧filter（`backend/circles/repository.py`）は、`weekday`と`timeBand`を独立した存在判定で評価しており、D4の同一activity scheduleレコード判定を満たしていない。`all_day`の各時間帯への展開もない。D4の実装には別のimplementation PRが必要である。
+- 年間費用filter、都道府県・市区町村の構造化filter、公開タグ一覧APIは存在しない。`tagId` filterは存在する。
+- `tags`テーブルにはactive / inactiveを表す列がない。
+
+### S5 Status
+
+- 本Decisionで解消するHuman Decision: HD-1、HD-2、HD-3、HD-4（`S5_DECISIONS = HUMAN_APPROVED`）。
+- `S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`を維持する。`S5_IMPLEMENTATION = NOT_COMPLETE`であり、S5全体のCOMPLETE / READY_ALLとしない。
+- 共通仕様は`docs/search-s5-spec.md`を参照する。
+
+### Out of Scope / 未決（本Decisionでは決めない）
+
+- 沿線・駅の開発日、リリース日、鉄道マスターの提供元、ライセンス、費用。エリアfilterのAPI parameter名、endpoint、DB schema
+- 年間費用の上端（20,000円以上）を超える値の扱い、上限不明・未回答データと無制限予算との一致条件、入力・表示・NULLのDB詳細
+- 公開タグ一覧APIのendpoint名、response形式、seed方法、非アクティブタグと既存revisionの関係。人気タグを再導入する時期と方式
+- FR-005の「0件のときの人気タグへの導線」とD3の関係（未確認）
 
 ## 要確認・次workへ引き継ぐ項目
 
@@ -976,6 +1048,6 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - fraud / abnormal favorite exclusionの具体仕様（別Human Decision。DEC-061 D2のrelease gate: Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前）
 - favoriteCountのAPI response公開（H10）、cursor payloadの機密性（現行codecは署名のみでpayloadはclientから読める。`docs/api-contract.md`参照。DEC-061では決めていない、別Human Decision候補）、most_favoritedのNFR分類
 - 5 ratingの検索利用の将来方式（S5 MVPでは使用しない。DEC-063）、ratingの各段階の意味とUI最終文言、評価項目のmanager edit・API write、実データの投入方法
-- S5検索の残課題（DEC-063では決めていない）: area structured filter、annual cost filter、tag master endpoint / vocabulary、timeBand all_day / irregular semantics、男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認
+- S5検索の残課題: 男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認。area / annual cost / tag / timeBandの仕様方針はDEC-066（2026-10-13）で確定済みで、DEC-066後に残る未決は`docs/search-s5-spec.md` 8節を参照（沿線・駅の時期とデータ提供元、年間費用の上端超過値・NULL詳細、タグ一覧APIの設計、人気タグの再導入時期など）
 
 大学Google Workspace限定OAuthの検証は引き継がない。一般Google OAuthとiOSのSign in with Appleはinitial認証として実装対象である。

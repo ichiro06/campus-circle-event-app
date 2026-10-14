@@ -21,6 +21,7 @@
    - 要件レビュー: `docs/requirements-review-2026-08-21.md`
    - 詳細決定報告: `docs/requirements-decision-report-2026-09-15.md`
    - コーディング開始準備: `docs/coding-readiness.md`
+   - S5検索（サークル検索の絞り込み）: `docs/search-s5-spec.md`
 3. `git status`、対象ファイル、設定ファイル、既存テストを確認してから変更する。
 4. 会話履歴より、現在のコード、設定、リポジトリ内文書を優先する。
 5. 開発端末、導入済みツール、起動・接続確認の実績は `docs/development-setup.md` を基準にする。
@@ -74,6 +75,7 @@
 - managerの追加・交代・解除、account削除時のmembership失効、申請・承認・解除の監査ログを正式要件とする。service operatorはMFAを必須とする。
 - initial scopeはpersonalized home、detailed circle search、favorite、my page、circle page / management、report / shareである。
 - eventは2026年度内を目標とするが具体時期未定、chatは時期未定であり、initial実装済みと扱わない。
+- S5検索（絞り込み条件・FR-004）に関する作業では、`docs/search-s5-spec.md`とNotionの承認済みDecision（DEC-062・063・066）を確認する。仕様が承認済みであることは実装済みを意味せず、S5全体をCOMPLETE / READY_ALLとしない。仕様書にないAPI parameter名・endpoint・DB migration詳細・UI細部は未承認であり推測で決めない。Notionを読めないagentは同期済みdocsを参照し、新規要件の承認や変更を独断で行わない。
 - universityとschool yearは任意・非公開、birth dateは初期収集しない。interestは任意、view historyは説明後に明示的に有効化し、直近20件または90日の早い方までとする。
 - nickname、university、birth dateから完全・一部email addressを返す旧案はDEC-052で廃止した。provider login、存在を明かさないemail reset、確認済みidentityを使うsupportへ置き換える。
 - Chakra UIは現在の依存関係に含まれていない。要件・設計上の決定なしに追加しない。
@@ -147,3 +149,4 @@ curl http://localhost:8000/api/events
 - `docs/data-dictionary.md`: 正式field、初期DB schema、推薦、保持・削除
 - `docs/non-functional-requirements.md`: OS、性能、可用性、backup、accessibility、security、運用SLA
 - `docs/coding-readiness.md`: 実装可能範囲、未確定blocker、導入済みquality baseline
+- `docs/search-s5-spec.md`: S5検索のHuman Decision（DEC-062・063・066）をGit管理上で参照するための同期済み共通仕様。Notionの承認状態を置き換えない

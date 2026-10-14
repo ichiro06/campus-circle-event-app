@@ -129,6 +129,11 @@ Work 2の正式な公開read endpointは次の2つである。データ源はPos
 
 一覧で受け付けるfilterは`q`、`officialStatus`、`circleType`、`campFrequencyCode`、`memberCountBand`、`activityFrequencyCode`、`weekday`、`timeBand`、`tagId`、`genderBalanceCode`だけとする。同じfilterの反復はOR、異なるfilter間と`q`はANDで結合する。
 
+> **S5検索の承認済み意味論と現行契約の差（DEC-066、2026-10-13。契約の変更ではなく差分の記録）**
+>
+> - 上記のfilter集合と「異なるfilter間はAND」は現行契約として変更しない。年間費用、都道府県・市区町村、公開タグ一覧は、承認済みの検索意味論（`docs/search-s5-spec.md`）はあるが、parameter名・endpoint・response形式は未承認であり、この契約にまだ含まれない。
+> - `weekday`と`timeBand`が同時に指定された場合、DEC-066 D4は同一のactivity scheduleレコードでの一致を要求する。`timeBand`は`all_day`が午前・昼・夕方・夜（`morning`、`daytime`、`evening`、`night`）の各指定に一致し、`irregular`は通常の4つの指定に一致しない。現行実装は`weekday`と`timeBand`を独立した存在判定で評価しており、この意味論を満たさない。実装PRで契約・実装・testを更新する。
+
 `q`はtrim後の1つのliteral substringとして、display name、headline、summary、description、大学名、campus名、tag名、活動場所の都道府県・市区町村・施設名・最寄駅・公開noteを検索する。`%`と`_`はwildcardではなくliteralとしてescapeし、空白だけの明示的な`q`は`422 VALIDATION_ERROR`とする。日本語形態素解析、かな正規化、類義語、relevance rankingは行わない。
 
 sortは`newest`と`most_favorited`で、既定値は`newest`とする。`newest`の正式順序は`circle_revisions.published_at DESC NULLS LAST, circles.id DESC`である。`most_favorited`の順序とcursorは4.2に定める。Circle一覧の`page`だけは共通fieldに必須の`totalCount`を加え、cursor適用前の現在時点における公開条件・filter一致総数を返す。snapshot countではない。
