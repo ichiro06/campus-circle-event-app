@@ -1060,7 +1060,8 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - 未実装部分:
   - 「検索条件を見直す」という独立した操作（D2）と、名称「検索条件をすべて解除」への変更（現行ラベルは「検索条件を解除」）
   - 「タグから探し直す」導線と選択前の説明文（D3）
-  - 公開タグ一覧API。mobileのfilter型に`tagId`はない（生成型にはあり、backendの`tagId` filterは存在する）。`tags`テーブルにはactive / inactiveを表す列がない
+  - 公開タグ一覧API（未実装）。`tags`テーブルにはactive / inactiveを表す列がない
+  - mobileのタグ検索。API query型（`ListCirclesQuery`）と`CircleListFilters`は、生成OpenAPI型の既存`tagId` filterに対応している（backendの`tagId` filterも存在する）。ただし、検索画面（`SearchScreen`）は`tagId`を検索条件に設定・送信する処理とタグ選択UIを実装していない
   - タグ一覧APIが使えない場合の分岐（D4）
   - 直前の検索条件へ戻す操作（D5）
 

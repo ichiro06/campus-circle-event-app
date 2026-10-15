@@ -71,7 +71,7 @@ DEC-067（FR-005の検索結果0件時UXを通常タグによる再検索導線�
 | 項目 | 意思決定 | 実装 | 要件の完了状態 |
 | --- | --- | --- | --- |
 | 条件の見直し・すべての解除（D2） | RESOLVED / HUMAN_APPROVED | 条件解除は実装済み（ラベルは「検索条件を解除」）。「検索条件を見直す」の独立した操作は未実装 | 未完了。「検索条件を見直す」の実装方式は実装PRで決める |
-| 「タグから探し直す」導線（D3） | RESOLVED / HUMAN_APPROVED（選択時に条件を解除してそのタグだけで再検索、並び順は維持） | 未実装。公開タグ一覧APIは未実装で、mobileのfilter型に`tagId`もない | 公開タグ一覧APIとタグ導線の実装までPARTIAL |
+| 「タグから探し直す」導線（D3） | RESOLVED / HUMAN_APPROVED（選択時に条件を解除してそのタグだけで再検索、並び順は維持） | 未実装。公開タグ一覧APIは未実装。mobileのAPI query型・`CircleListFilters`は既存の`tagId` filterに対応しているが、検索画面（`SearchScreen`）は`tagId`の設定・送信とタグ選択UIを実装していない | 公開タグ一覧APIとタグ導線の実装までPARTIAL |
 | タグ一覧API不可時の分岐（D4） | RESOLVED / HUMAN_APPROVED | 未実装。現行の0件画面を暫定的に利用する（D2〜D5の実装済みを意味しない） | 未完了 |
 | 直前の検索条件へ戻す操作（D5） | RESOLVED / HUMAN_APPROVED（アプリ内の一時状態。サーバー保存なし） | 未実装 | 未完了。復元可能期間とUIは実装時に提案 |
 
