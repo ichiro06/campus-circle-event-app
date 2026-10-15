@@ -1,6 +1,6 @@
 # 要件定義の進捗
 
-- 最終更新日: 2026-10-14
+- 最終更新日: 2026-10-15
 - 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`は公開read範囲の実装・検証が完了（public read slice COMPLETE。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではない）。Personalized Home Contract、Home Production Ready、External Beta / Releaseは未決事項が残りBLOCKED（`docs/coding-readiness.md` 3.1）
 
 ## 1. 情報源
@@ -64,6 +64,21 @@ DEC-066（S5検索のエリア段階実装・年間費用・通常タグ検索�
 - DEC-062 / DEC-063は変更しない（5 rating検索除外、男女比UIは回答済み4 category、合宿・規模・活動頻度は離散chip、W4 COMPLETE、FR-017 PARTIAL）。レンジスライダー不採用は合宿・規模・活動頻度だけで、年間費用のスライダーは維持する。
 - `S5_DECISIONS = HUMAN_APPROVED`、`S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`（維持）、`S5_IMPLEMENTATION = NOT_COMPLETE`。S5全体のCOMPLETE / READY_ALLは宣言しない。
 
+### 検索結果0件時の導線（FR-005、DEC-067、2026-10-15）
+
+DEC-067（FR-005の検索結果0件時UXを通常タグによる再検索導線に確定）: **RESOLVED / HUMAN_APPROVED**（承認者: 一朗）。共通仕様は`docs/search-s5-spec.md` 4.5。DEC-066 D3（人気タグの特別扱いは初期除外）は変更しない。意思決定の状態であり、実装完了ではない。
+
+| 項目 | 意思決定 | 実装 | 要件の完了状態 |
+| --- | --- | --- | --- |
+| 条件の見直し・すべての解除（D2） | RESOLVED / HUMAN_APPROVED | 条件解除は実装済み（ラベルは「検索条件を解除」）。「検索条件を見直す」の独立した操作は未実装 | 未完了。「検索条件を見直す」の実装方式は実装PRで決める |
+| 「タグから探し直す」導線（D3） | RESOLVED / HUMAN_APPROVED（選択時に条件を解除してそのタグだけで再検索、並び順は維持） | 未実装。公開タグ一覧APIは未実装で、mobileのfilter型に`tagId`もない | 公開タグ一覧APIとタグ導線の実装までPARTIAL |
+| タグ一覧API不可時の分岐（D4） | RESOLVED / HUMAN_APPROVED | 未実装。現行の0件画面を暫定的に利用する（D2〜D5の実装済みを意味しない） | 未完了 |
+| 直前の検索条件へ戻す操作（D5） | RESOLVED / HUMAN_APPROVED（アプリ内の一時状態。サーバー保存なし） | 未実装 | 未完了。復元可能期間とUIは実装時に提案 |
+
+- 0件と通信エラーの分岐（loading → error → empty）は現行mobileで実装済み（D1の前提）。
+- 「人気タグ」という表現は使わない。人気タグの特別機能を提供しないまま元の「人気タグ」要件をCOMPLETEにしない（DEC-066 D3）。
+- FR-005全体、S5全体のCOMPLETE / READY_ALLは宣言しない。
+
 ### API・DB
 
 - `/api/v1`、camelCase、UUID、RFC 3339 UTC、RFC 9457 Problem Detailsを採用する。
@@ -100,7 +115,7 @@ DEC-066（S5検索のエリア段階実装・年間費用・通常タグ検索�
 | circle auto deletion | 初期対象外 |
 | paid boost / advertising | 構想のみ。自然推薦に混ぜない |
 | MARCH / 全大学 | 将来phase |
-| S5検索の残課題 | 仕様方針はDEC-066（2026-10-13）で確定済み。DEC-066後も未決: 沿線・駅の時期とデータ提供元、年間費用の上端超過値・上限不明 / 未回答と無制限予算の一致条件・NULLのDB詳細、公開タグ一覧APIの設計、人気タグの再導入時期（詳細は`docs/search-s5-spec.md` 8節）。男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認、rating尺度・UI最終文言確定後の検索利用の再検討も残る |
+| S5検索の残課題 | 仕様方針はDEC-066（2026-10-13）で確定済み。DEC-066後も未決: 沿線・駅の時期とデータ提供元、年間費用の上端超過値・上限不明 / 未回答と無制限予算の一致条件・NULLのDB詳細、公開タグ一覧APIの設計、人気タグの再導入時期（詳細は`docs/search-s5-spec.md` 8節）。FR-005の0件時の導線はDEC-067（2026-10-15）で確定済みだが、公開タグ一覧APIとタグ導線は未実装。男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認、rating尺度・UI最終文言確定後の検索利用の再検討も残る |
 
 ## 4. 人の操作・判断が残るもの
 
