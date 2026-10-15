@@ -139,7 +139,7 @@ DEC-066は次を変更しない。
   - 上端（20,000円以上）を超える値の扱い。
   - 上限不明・未回答データと無制限予算との一致条件。
   - 入力・表示・NULLのDB詳細。
-  - 既存の`circle_revisions.annual_cost_min_yen` / `annual_cost_max_yen`はともにnullableで、CHECK制約は`min <= max`（両方非NULLのとき）だけである。「上限不明」「未回答」「0円」をこの2列でどう表すかは未決である。
+  - 既存の`circle_revisions.annual_cost_min_yen` / `annual_cost_max_yen`はともにnullableで、初回migration（`20260915_0001`）のCHECK制約は次の3条件である。(1) `annual_cost_min_yen`が非NULLなら0以上、(2) `annual_cost_max_yen`が非NULLなら0以上、(3) 両方が非NULLの場合は`min <= max`。「上限不明」「未回答」「0円」をこの2列でどう表すかは未決である。
   - 既存の費用明細`circle_costs.amount_max_yen`のNULLには別の意味が存在し得る。費用明細のNULL意味論は変更しない。年間summaryの意味との違いは設計課題である。
 - タグ: 公開タグ一覧APIのendpoint名、response形式、seed方法。非アクティブタグと既存revisionの関係。現在の`tags`テーブルにはactive / inactiveを表す列がない（`display_order`はある）。人気タグの再導入時期と方式。
 - 活動時間帯: 実装時の詳細は既存API契約に沿って実装PRで定める。
