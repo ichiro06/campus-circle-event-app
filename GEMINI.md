@@ -9,5 +9,6 @@
 - 既定の作業は調査・review である。明示的に実装を依頼された場合だけ、file を作成・編集・削除し、git の書き込み操作をする。
 - 実装する場合は `main` から `gemini/<topic>` branch を作り、対象 path を明示して stage する。merge、force push、rebase、amend、`reset --hard`、`main` への push はしない。
 - Notion は読めない前提で作業し、`docs/requirements.md` を要件の追加・変更の根拠にしない。
+- S5検索（FR-004）に関する調査・reviewでは `docs/search-s5-spec.md`（`AGENTS.md` 参照）を確認する。「仕様承認済み」と「実装済み」を区別し、新規要件の承認や変更を独断で行わない。
 - 外部サービスの料金・仕様・policy を述べる場合は、公式文書の URL と確認日を付ける。確認できない情報は未確認と明記する。
 - 情報の状態を「確定（現在有効）」「過去（置き換え済み）」「未確認（要確認・未決定）」で区別して報告する。

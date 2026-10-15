@@ -1,6 +1,6 @@
 # 要件定義の進捗
 
-- 最終更新日: 2026-10-07
+- 最終更新日: 2026-10-14
 - 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`は公開read範囲の実装・検証が完了（public read slice COMPLETE。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではない）。Personalized Home Contract、Home Production Ready、External Beta / Releaseは未決事項が残りBLOCKED（`docs/coding-readiness.md` 3.1）
 
 ## 1. 情報源
@@ -49,6 +49,21 @@
 - same-filter OR / different-filter ANDは既存API contractであり、DEC-063で新規決定していない。backend APIのAPI capability（`genderBalanceCode`が`not_disclosed`を受理できること等）は変更していない。
 - S5_SEARCH_ENTRY_GATE: **READY_WITH_SCOPE_LIMIT**（維持）。S5全体の完了（COMPLETE / READY_ALL）ではない。
 
+### 検索（S5、DEC-066、2026-10-13）
+
+DEC-066（S5検索のエリア段階実装・年間費用・通常タグ検索・活動時間帯）: **RESOLVED / HUMAN_APPROVED**（承認者: 一朗、ゆうすけ）。共通仕様は`docs/search-s5-spec.md`。意思決定の状態であり、実装完了ではない。
+
+| 領域 | 意思決定 | 実装 | 要件の完了状態 |
+| --- | --- | --- | --- |
+| HD-1 エリア（D1） | RESOLVED / HUMAN_APPROVED（都道府県・市区町村を先行、沿線・駅は後続） | 未実装 | 沿線・駅の実装まで元のMust要件に対して**PARTIAL** |
+| HD-2 年間費用（D2） | RESOLVED / HUMAN_APPROVED（自己申告の入会初年度の標準的な年間費用、containment、範囲スライダー） | 未実装 | 未完了。上端超過値・上限不明 / 未回答と無制限予算の一致条件・NULLのDB詳細は設計課題 |
+| HD-3 タグ（D3） | RESOLVED / HUMAN_APPROVED（通常タグ検索7語彙、人気タグの特別扱いは初期除外） | `tagId` filterのみ。公開タグ一覧APIは未実装 | 人気タグの特別機能を提供しないまま元の「人気タグ」要件をCOMPLETEにしない |
+| HD-4 活動時間帯（D4） | RESOLVED / HUMAN_APPROVED（`all_day` / `irregular`の意味論、曜日×時間帯は同一activity schedule） | 現行filterは未対応（曜日と時間帯を独立判定。`all_day`は展開なし） | 未完了 |
+
+- 沿線・駅は削除した要件ではなく、実装を後続段階へ移した要件である。後続の開発日、リリース日、鉄道マスターの提供元、ライセンス、費用は未決。
+- DEC-062 / DEC-063は変更しない（5 rating検索除外、男女比UIは回答済み4 category、合宿・規模・活動頻度は離散chip、W4 COMPLETE、FR-017 PARTIAL）。レンジスライダー不採用は合宿・規模・活動頻度だけで、年間費用のスライダーは維持する。
+- `S5_DECISIONS = HUMAN_APPROVED`、`S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`（維持）、`S5_IMPLEMENTATION = NOT_COMPLETE`。S5全体のCOMPLETE / READY_ALLは宣言しない。
+
 ### API・DB
 
 - `/api/v1`、camelCase、UUID、RFC 3339 UTC、RFC 9457 Problem Detailsを採用する。
@@ -85,7 +100,7 @@
 | circle auto deletion | 初期対象外 |
 | paid boost / advertising | 構想のみ。自然推薦に混ぜない |
 | MARCH / 全大学 | 将来phase |
-| S5検索の残課題 | 未決（DEC-063では決めない）: area structured filter、annual cost filter、tag master endpoint / vocabulary、timeBand all_day / irregular semantics。男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認、rating尺度・UI最終文言確定後の検索利用の再検討も残る |
+| S5検索の残課題 | 仕様方針はDEC-066（2026-10-13）で確定済み。DEC-066後も未決: 沿線・駅の時期とデータ提供元、年間費用の上端超過値・上限不明 / 未回答と無制限予算の一致条件・NULLのDB詳細、公開タグ一覧APIの設計、人気タグの再導入時期（詳細は`docs/search-s5-spec.md` 8節）。男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認、rating尺度・UI最終文言確定後の検索利用の再検討も残る |
 
 ## 4. 人の操作・判断が残るもの
 
