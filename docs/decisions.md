@@ -1017,7 +1017,7 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 
 - 公開Circle一覧filter（`backend/circles/repository.py`）は、`weekday`と`timeBand`を独立した存在判定で評価しており、D4の同一activity scheduleレコード判定を満たしていない。`all_day`の各時間帯への展開もない。D4の実装には別のimplementation PRが必要である。
 - 年間費用filter、都道府県・市区町村の構造化filter、公開タグ一覧APIは存在しない。`tagId` filterは存在する。
-- `tags`テーブルにはactive / inactiveを表す列がない。
+- `tags`テーブルには、初回migration（revision `20260915_0001`）で`is_active`列（BOOLEAN、NOT NULL、server default true）が定義済みである。ただしbackendのORM（`backend/app_private/models.py`の`Tag`）には未マッピングで、API・mobileはこの列を参照していない。実DBへの適用状態は未確認である。（事実訂正: 以前の記述「active / inactiveを表す列がない」は誤記だった。DEC-068で指摘し、Notion DEC-066の同記述も訂正済み）
 
 ### S5 Status
 
@@ -1031,6 +1031,7 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - 年間費用の上端（20,000円以上）を超える値の扱い、上限不明・未回答データと無制限予算との一致条件、入力・表示・NULLのDB詳細
 - 公開タグ一覧APIのendpoint名、response形式、seed方法、非アクティブタグと既存revisionの関係。人気タグを再導入する時期と方式
 - FR-005の「0件のときの人気タグへの導線」とD3の関係（未確認）
+- [過去] 上記のうち、FR-005の0件時導線との関係はDEC-067（2026-10-15）で、年間費用の上端の意味・上限不明 / 未回答と無制限予算の一致条件、非アクティブタグと既存revisionの関係、市区町村filterの選択粒度（政令指定都市・東京都特別区）はDEC-068（2026-10-18）で決定した。DEC-066の当時の記述として保持する。現在の未決は`docs/search-s5-spec.md` 8節を参照する
 
 ## DEC-067: FR-005の検索結果0件時UXを、通常タグによる再検索導線に確定する
 
@@ -1060,7 +1061,7 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - 未実装部分:
   - 「検索条件を見直す」という独立した操作（D2）と、名称「検索条件をすべて解除」への変更（現行ラベルは「検索条件を解除」）
   - 「タグから探し直す」導線と選択前の説明文（D3）
-  - 公開タグ一覧API（未実装）。`tags`テーブルにはactive / inactiveを表す列がない
+  - 公開タグ一覧API（未実装）。`tags`テーブルには初回migration（revision `20260915_0001`）で`is_active`列（BOOLEAN、NOT NULL、server default true）が定義済みだが、backendのORM（`Tag`）には未マッピングで、API・mobileは参照していない。実DBへの適用状態は未確認（事実訂正: 以前の記述「active / inactiveを表す列がない」は誤記だった。DEC-068で指摘し、Notion DEC-067の同記述も訂正済み）
   - mobileのタグ検索。API query型（`ListCirclesQuery`）と`CircleListFilters`は、生成OpenAPI型の既存`tagId` filterに対応している（backendの`tagId` filterも存在する）。ただし、検索画面（`SearchScreen`）は`tagId`を検索条件に設定・送信する処理とタグ選択UIを実装していない
   - タグ一覧APIが使えない場合の分岐（D4）
   - 直前の検索条件へ戻す操作（D5）
@@ -1074,11 +1075,72 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 ### Out of Scope / 未決（本Decisionでは決めない）
 
 - 公開タグ一覧APIのendpoint名、response形式、seed方法、非アクティブタグと既存revisionの関係（DEC-066で未決のまま）
+  - [過去] 非アクティブタグと既存revisionの関係はDEC-068 H5（2026-10-18）で決定した。DEC-067の当時の記述として保持する。endpoint名、response形式、seed方法は引き続き未決
 - 「検索条件を見直す」の具体的な実装方式。直前条件へ戻す操作のUIと復元可能期間
 - 見出し・説明文・ボタンの最終文言のアクセシビリティ確認（VoiceOver / TalkBack実操作は未確認）
 - タグ置換後も0件だった場合の画面。検索条件なし・公開サークル0件の画面の新しいUX
 - タグごとの該当件数の表示（新APIが必要で未承認。行わない）
 - 人気タグの再導入時期と方式（DEC-066で未決のまま）
+
+## DEC-068: S5検索の残課題：年間費用上端・無制限予算・非アクティブタグ・行政区粒度を確定
+
+- 日付: 2026-10-18
+- 状態: 採用（Notion意思決定ログ上のステータスは、同DBに「採用」optionがないため既存の完了系option「決定」である。DEC-062〜DEC-067と同じ扱い）
+- 決定内容: Human Decision（2026-10-18、Human Approved: YES。Notion DEC-068の記載では、承認者は承認時のチャットのユーザー本人）。Claudeの技術設計提案とCodexの独立レビューを確認したうえで、推奨案H1・H2・H5・H7を一括承認した。DEC-066・DEC-067の既存承認を維持し、未決部分だけを補完する。
+  - (H1) 年間費用の範囲スライダー上端「20,000円以上」は予算上限なしを意味し、有限上限20,000円として扱わない。サークルの実額は20,000円で切り捨てない
+  - (H2) 費用filterを指定し予算上限なしの場合、下限既知・上限不明のサークルは、既知下限が利用者の予算下限以上なら一致する。未回答は不一致。有限上限では上限不明は不一致。費用filter無指定なら、未回答・上限不明を費用条件だけで除外しない
+  - (H5) 通常タグの非アクティブ化は、新規選択肢から除外する意味とする（R1）。既存の公開revisionのタグ表示、既存`tagId`による検索、タグ名キーワード検索は維持する。モデレーション目的の公開抑制は別仕様とする
+  - (H7) 初期検索の選択粒度は、政令指定都市は市単位（行政区単位では検索させない）、東京都23特別区は各区単位とする。後続の行政区検索に備え、元の区情報・コードを失わないデータ設計とする。沿線・駅は後続段階
+- 決定理由: H1は、上端20,000円を固定上限と誤認させず、年会費の実額も切り捨てないため。H2は、有限予算のcontainmentと上限なしの予算を区別し、未回答を0円扱いしないため。H5は、既存revisionと保存済み検索の意味を保ち、非アクティブタグの新規選択だけを止めるため。H7は、初期のマスター・UI開発負担を抑えつつ、東京23特別区の粒度と、後続での政令指定都市の行政区対応の余地を維持するため。
+- 不採用の選択肢: H1の20,000円超の有限値を別入力する案。H2の上限不明・未回答を両方除外する案。H5のR2（全表示・検索を抑制する案）。H7の政令指定都市の行政区まで初期実装する案。
+- 旧方針: DEC-066は、年間費用の上端超過値の扱い、上限不明・未回答データと無制限予算との一致条件、非アクティブタグと既存revisionの関係を未決とし、市区町村filterの選択粒度を定めていなかった。DEC-066・DEC-067の当時の記述は履歴として保持する。
+- 根拠: Notion DEC-068（意思決定ログ。関連要件FR-004・FR-005、関連議事録は第1回要件定義議事録）。本repositoryへの同期は新しいHuman Decisionではない。
+
+### Existing Decisions Not Changed
+
+- DEC-062・DEC-063: rating検索除外、男女比filter、合宿・規模・活動頻度のchip選択
+- DEC-066: containment、通常タグの初期7語彙、曜日・活動時間帯の同一schedule一致、エリアの段階実装（都道府県と市区町村は同一活動場所で一致、同一filter OR・異なるfilter AND、オンラインのみの場所の除外）
+- DEC-067: 0件UXにおける通常タグ再検索・直前条件の復元
+- API契約（camelCase、cursor pagination、Problem Details）、W4のCOMPLETE
+
+### H1: 年間費用スライダーの上端
+
+- 「20,000円以上」の上端選択は予算上限なしと解釈する。20,000円を有限上限として扱わない。
+- サークル側が申告した20,000円を超える実額・上限を20,000円へ切り詰めない。
+- 予算下限は範囲スライダーの指定値として引き続き有効である。費用filterを指定しない状態と、上限なしを含む範囲を指定した状態は区別する。
+- 上端の内部表現・API parameter形式は技術設計 / 実装PRで決める。
+
+### H2: 上限なしの予算と欠損値
+
+- 有限上限の予算では、DEC-066のcontainmentを維持する。上限不明・未回答は一致しない。
+- 上限なしの予算では、年間費用の下限が既知で上限不明のサークルは、既知下限が利用者の指定下限以上の場合に一致する。
+- 未回答（費用の下限・上限とも不明）は、費用filterが有効な場合は一致しない。0円として解釈しない。
+- 費用filter無指定の場合、未回答・上限不明を費用条件だけで除外しない。
+- 既存の`circle_costs`費用明細のNULL意味論は変更しない。DBの具体的な符号化・CHECK・migrationは技術設計 / PRレビューの対象である。
+
+### H5: タグの非アクティブ化（R1）
+
+- 非アクティブの通常タグは、新規のタグ選択肢（公開タグ一覧API）には表示しない。
+- 既存の公開revisionに紐付いたタグの表示、既存の`tagId` filterによる検索、キーワードによるタグ名検索は維持する。
+- 既存revisionを自動的に書き換えない。人気タグの特別管理やランキングは、DEC-066どおり初期スコープ外である。
+- 不適切なタグを公衆から非表示にするモデレーション操作は、この非アクティブ化とは別仕様とし、今回自動実装しない。
+
+### H7: 政令指定都市の行政区と東京都特別区
+
+- 初期の選択UI・検索条件は、政令指定都市は市単位とし、行政区単位の検索は後続の検討とする。
+- 東京都の23特別区は各区単位で選択・検索できる。
+- 後続で行政区単位を追加できるように、既存の行政区名・元データ・コード情報を失わない設計とする。存在しないコードや由来を推測で補完しない。
+- 都道府県と市区町村は、DEC-066の同一活動場所での一致、同種OR・異種AND、オンライン専用の除外を維持する。
+- 沿線・駅は後続段階であり、FR-004全体をCOMPLETEにしない。
+
+### 残る技術設計と状態（Notion DEC-068の記載）
+
+- H3（下限包含）・H8（同一場所のAND）・H10（特殊時間帯）は、既存承認の範囲内で解釈する。
+- H6（地域マスターの取得元・利用条件・更新方式）とH9（オンライン併用データの判別 / 移行基準）は、技術設計・PRレビューで具体化する。
+- H4（年間費用のカード・レスポンス表示）は今回は未決で、後続に保留する。
+- タグ一覧APIは、既存collection response契約に従う技術設計を推奨する（推奨であり、endpoint名・response形式は未決）。seedの衝突、down migration、安全性は実装PRで検証する。
+- `tags.is_active`は初回migrationで定義済みだがORMに未マッピングである。Notion・repository文書の一部にあった「列がない」は事実誤記であり、Notion DEC-066・DEC-067とrepository docsで訂正した。実DBへの適用状態は未確認である。
+- `S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`、`S5_IMPLEMENTATION = NOT_COMPLETE`を維持する。製品仕様の承認、Notion記録、docs同期、コード実装完了はそれぞれ別の状態である。FR-004・FR-005、S5全体をCOMPLETE / READY_ALLとしない。共通仕様は`docs/search-s5-spec.md`を参照する。
 
 ## 要確認・次workへ引き継ぐ項目
 
@@ -1097,6 +1159,6 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - fraud / abnormal favorite exclusionの具体仕様（別Human Decision。DEC-061 D2のrelease gate: Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前）
 - favoriteCountのAPI response公開（H10）、cursor payloadの機密性（現行codecは署名のみでpayloadはclientから読める。`docs/api-contract.md`参照。DEC-061では決めていない、別Human Decision候補）、most_favoritedのNFR分類
 - 5 ratingの検索利用の将来方式（S5 MVPでは使用しない。DEC-063）、ratingの各段階の意味とUI最終文言、評価項目のmanager edit・API write、実データの投入方法
-- S5検索の残課題: 男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認。area / annual cost / tag / timeBandの仕様方針はDEC-066（2026-10-13）で確定済みで、DEC-066後に残る未決は`docs/search-s5-spec.md` 8節を参照（沿線・駅の時期とデータ提供元、年間費用の上端超過値・NULL詳細、タグ一覧APIの設計、人気タグの再導入時期など）。FR-005の0件時の導線はDEC-067（2026-10-15）で確定済みだが、公開タグ一覧APIとタグ導線は未実装
+- S5検索の残課題: 男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認。area / annual cost / tag / timeBandの仕様方針はDEC-066（2026-10-13）で確定済み。年間費用の上端・上限なし予算と欠損値、非アクティブタグ、市区町村の選択粒度はDEC-068（2026-10-18）で確定済み。残る未決は`docs/search-s5-spec.md` 8節を参照（沿線・駅の時期とデータ提供元、地域マスターの取得元・利用条件・更新方式、オンライン併用データの判別 / 移行基準、年間費用の上端の内部表現・DB符号化・カード / response表示、タグ一覧APIのendpoint・response形式・seed、人気タグの再導入時期など）。FR-005の0件時の導線はDEC-067（2026-10-15）で確定済みだが、公開タグ一覧APIとタグ導線は未実装
 
 大学Google Workspace限定OAuthの検証は引き継がない。一般Google OAuthとiOSのSign in with Appleはinitial認証として実装対象である。

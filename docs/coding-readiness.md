@@ -83,25 +83,27 @@ personalized Home、view write、favorite write、interest scoring、A2の決定
 | 性能follow-up | OPEN | W4開発開始・public read実装は止めない。external beta / release前に、production-equivalent環境で正式dataset + concurrencyの再測定が必要 |
 | fraud具体仕様 | OPEN | W4 public read start blockerではない。Home recommendationのproduction-ready扱い前またはexternal beta / production release開始前の早い方より前に必要（DEC-061 D2を維持） |
 
-### 3.2 S5検索の実装可能範囲と残る設計課題（DEC-066、2026-10-13）
+### 3.2 S5検索の実装可能範囲と残る設計課題（DEC-066、2026-10-13。DEC-068、2026-10-18）
 
 S5検索のエリア・年間費用・タグ・活動時間帯は、2026-10-13のHuman Decision（DEC-066）で仕様方針が確定した（`S5_DECISIONS = HUMAN_APPROVED`）。共通仕様は`docs/search-s5-spec.md`を参照する。これは意思決定の状態であり、実装完了ではない（`S5_IMPLEMENTATION = NOT_COMPLETE`）。`S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`を維持し、S5全体のCOMPLETE / READY_ALLは宣言しない。
 
+DEC-068（2026-10-18、Human Approved）は、DEC-066で未決だった年間費用の上端の意味（H1）、上限なし予算と欠損値の一致条件（H2）、タグの非アクティブ化の意味（H5）、市区町村の選択粒度（H7）を決定した。仕様承認であり、実装済みではない。
+
 実装PRで着手できる範囲（承認済みの意味論に限る）:
 
-- エリア: 都道府県・市区町村の構造化filter（同一活動場所レコードでの一致、オンラインのみの場所は地理的filterに不一致、未指定時は除外しない）。沿線・駅は後続段階
-- 年間費用: 自己申告の入会初年度の標準的な年間費用に対するcontainment検索と範囲スライダー
-- タグ: 公開タグ一覧API、通常タグ7語彙の複数選択（既存`tagId` filterを利用する方向）
+- エリア: 都道府県・市区町村の構造化filter（同一活動場所レコードでの一致、オンラインのみの場所は地理的filterに不一致、未指定時は除外しない）。政令指定都市は市単位、東京都23特別区は区単位で、行政区情報を失わない（DEC-068 H7）。沿線・駅は後続段階
+- 年間費用: 自己申告の入会初年度の標準的な年間費用に対するcontainment検索と範囲スライダー。上端「20,000円以上」は予算上限なし（H1）、上限なし予算での上限不明・未回答の扱い（H2）
+- タグ: 公開タグ一覧API、通常タグ7語彙の複数選択（既存`tagId` filterを利用する方向）。非アクティブタグは新規選択肢から除外し、既存revisionの表示・`tagId`検索・タグ名キーワード検索は維持（H5）
 - 活動時間帯: `all_day` / `irregular`の意味論と、曜日×時間帯の同一activity schedule判定（現行filterは独立判定で、変更が必要）
 
-実装前に設計で解消するblocker / follow-up（DEC-066では決めていない。推測で実装しない）:
+実装前に設計で解消するblocker / follow-up（DEC-066・DEC-068では決めていない。推測で実装しない）:
 
 | 項目 | 内容 |
 | --- | --- |
-| 年間費用の欠損表現 | `circle_revisions.annual_cost_min_yen` / `annual_cost_max_yen`はともにnullableで、「上限不明」「未回答」「0円」をどう表すか未決。`circle_costs.amount_max_yen`のNULL意味論は変更しない |
-| 年間費用の上端 | 「20,000円以上」を超える値の扱い、上限不明・未回答データと無制限予算の一致条件、入力・表示 |
-| タグ一覧API | endpoint名、response形式、seed方法。現在の`tags`テーブルにはactive / inactiveを表す列がなく、非アクティブタグと既存revisionの関係も未決 |
-| エリアAPI・DB | filterのAPI parameter名、endpoint、構造化の方法（現在は自由記述の都道府県・市区町村・最寄駅） |
+| 年間費用の欠損表現 | 検索上の意味はDEC-068 H2で決定済み。`circle_revisions.annual_cost_min_yen` / `annual_cost_max_yen`はともにnullableで、「上限不明」「未回答」「0円」の具体的なDB符号化・CHECK・migrationは未決（技術設計 / PRレビュー）。`circle_costs.amount_max_yen`のNULL意味論は変更しない |
+| 年間費用の上端 | 上端「20,000円以上」は予算上限なし（DEC-068 H1で決定済み）。内部表現・API parameter形式、入力・表示、カード・response表示（H4、後続に保留）は未決 |
+| タグ一覧API | endpoint名、response形式、seed方法は未決（DEC-068は既存collection response契約に従う技術設計を推奨。決定ではない）。`tags.is_active`は初回migrationで定義済みだがORM未マッピングで、実DBへの適用は未確認。非アクティブタグと既存revisionの関係はDEC-068 H5で決定済み。seedの衝突、down migration、安全性は実装PRで検証する |
+| エリアAPI・DB | filterのAPI parameter名、endpoint、構造化の方法（現在は自由記述の都道府県・市区町村・最寄駅で、地域コードの列はない）。選択粒度はDEC-068 H7で決定済み。地域マスターの取得元・利用条件・更新方式（H6）、オンライン併用データの判別・移行基準（H9）は技術設計・PRレビューで具体化する |
 | 沿線・駅 | 開発日、リリース日、鉄道マスターの提供元、ライセンス、費用（未決） |
 | 契約変更 | 上記の追加は`/api/v1`のAPI契約・OpenAPI・mobile生成型の更新を伴う。Authentication / Authorization、DB migration、API契約変更はCopilotに単独で任せない（`docs/development-workflow.md` 14章） |
 | 0件時の導線 | DEC-067（2026-10-15）で確定済み（通常タグによる「タグから探し直す」導線、条件の見直し・すべての解除、直前条件へ戻す操作）。公開タグ一覧APIの設計に依存し、導線は未実装 / deferred。現行の0件画面は条件解除のみを暫定的に利用し、DEC-067 D2〜D5の実装済みを意味しない。「検索条件を見直す」の実装方式と復元可能期間・UIは実装PRで決める |
