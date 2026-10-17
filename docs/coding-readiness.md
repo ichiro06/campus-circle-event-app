@@ -63,7 +63,7 @@ W4 Entry Gate Audit（基準: `main` `bdd252e`、PR #27 merge済み、main CI #4
 
 - Retry: `docs/screen-flow.md` 6節で確定済みのGET retry（network error、timeout、429、502、503、504に限り最大2回、約0.5秒・1.5秒＋jitter、`Retry-After`優先）は、新仕様ではなく既存formal仕様の実装としてW4で必要である。
 - Offline: persistent offline cacheのstorage / NetInfo等は未整備である。W4ではloading、error、offline状態、画面memory上の直近成功data保持までを対象にできる。アプリ再起動をまたぐpersistent offline cacheをW4必須にするかは決めていない。
-- Search: 「おすすめ順」、popular tag導線、tag / category master endpoint依存UIは未実装 / deferredであり、W4で追加しない。
+- Search: 「おすすめ順」、0件時の「タグから探し直す」導線（通常タグによる再検索。popular tag導線ではない。DEC-067）、tag / category master endpoint依存UIは未実装 / deferredであり、W4で追加しない。popular tag導線は初期スコープ外である（DEC-066 D3）。
 
 #### W4で実装しないもの
 
@@ -104,7 +104,7 @@ S5検索のエリア・年間費用・タグ・活動時間帯は、2026-10-13�
 | エリアAPI・DB | filterのAPI parameter名、endpoint、構造化の方法（現在は自由記述の都道府県・市区町村・最寄駅） |
 | 沿線・駅 | 開発日、リリース日、鉄道マスターの提供元、ライセンス、費用（未決） |
 | 契約変更 | 上記の追加は`/api/v1`のAPI契約・OpenAPI・mobile生成型の更新を伴う。Authentication / Authorization、DB migration、API契約変更はCopilotに単独で任せない（`docs/development-workflow.md` 14章） |
-| 0件時の導線 | FR-005の「人気タグへの導線」とD3の関係は未確認。3.1のとおりpopular tag導線は未実装 / deferred |
+| 0件時の導線 | DEC-067（2026-10-15）で確定済み（通常タグによる「タグから探し直す」導線、条件の見直し・すべての解除、直前条件へ戻す操作）。公開タグ一覧APIの設計に依存し、導線は未実装 / deferred。現行の0件画面は条件解除のみを暫定的に利用し、DEC-067 D2〜D5の実装済みを意味しない。「検索条件を見直す」の実装方式と復元可能期間・UIは実装PRで決める |
 
 ## 4. 現在ユーザー操作・外部契約が必要な事項
 
