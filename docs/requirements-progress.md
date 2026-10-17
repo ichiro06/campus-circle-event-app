@@ -1,6 +1,6 @@
 # 要件定義の進捗
 
-- 最終更新日: 2026-10-15
+- 最終更新日: 2026-10-18
 - 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`は公開read範囲の実装・検証が完了（public read slice COMPLETE。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではない）。Personalized Home Contract、Home Production Ready、External Beta / Releaseは未決事項が残りBLOCKED（`docs/coding-readiness.md` 3.1）
 
 ## 1. 情報源
@@ -55,14 +55,29 @@ DEC-066（S5検索のエリア段階実装・年間費用・通常タグ検索�
 
 | 領域 | 意思決定 | 実装 | 要件の完了状態 |
 | --- | --- | --- | --- |
-| HD-1 エリア（D1） | RESOLVED / HUMAN_APPROVED（都道府県・市区町村を先行、沿線・駅は後続） | 未実装 | 沿線・駅の実装まで元のMust要件に対して**PARTIAL** |
-| HD-2 年間費用（D2） | RESOLVED / HUMAN_APPROVED（自己申告の入会初年度の標準的な年間費用、containment、範囲スライダー） | 未実装 | 未完了。上端超過値・上限不明 / 未回答と無制限予算の一致条件・NULLのDB詳細は設計課題 |
-| HD-3 タグ（D3） | RESOLVED / HUMAN_APPROVED（通常タグ検索7語彙、人気タグの特別扱いは初期除外） | `tagId` filterのみ。公開タグ一覧APIは未実装 | 人気タグの特別機能を提供しないまま元の「人気タグ」要件をCOMPLETEにしない |
+| HD-1 エリア（D1） | RESOLVED / HUMAN_APPROVED（都道府県・市区町村を先行、沿線・駅は後続。選択粒度はDEC-068 H7） | 未実装 | 沿線・駅の実装まで元のMust要件に対して**PARTIAL** |
+| HD-2 年間費用（D2） | RESOLVED / HUMAN_APPROVED（自己申告の入会初年度の標準的な年間費用、containment、範囲スライダー。上端と欠損値はDEC-068 H1・H2） | 未実装 | 未完了。上端の内部表現・NULLのDB符号化・カード / response表示は設計課題 |
+| HD-3 タグ（D3） | RESOLVED / HUMAN_APPROVED（通常タグ検索7語彙、人気タグの特別扱いは初期除外。非アクティブ化の意味はDEC-068 H5） | `tagId` filterのみ。公開タグ一覧APIは未実装 | 人気タグの特別機能を提供しないまま元の「人気タグ」要件をCOMPLETEにしない |
 | HD-4 活動時間帯（D4） | RESOLVED / HUMAN_APPROVED（`all_day` / `irregular`の意味論、曜日×時間帯は同一activity schedule） | 現行filterは未対応（曜日と時間帯を独立判定。`all_day`は展開なし） | 未完了 |
 
 - 沿線・駅は削除した要件ではなく、実装を後続段階へ移した要件である。後続の開発日、リリース日、鉄道マスターの提供元、ライセンス、費用は未決。
 - DEC-062 / DEC-063は変更しない（5 rating検索除外、男女比UIは回答済み4 category、合宿・規模・活動頻度は離散chip、W4 COMPLETE、FR-017 PARTIAL）。レンジスライダー不採用は合宿・規模・活動頻度だけで、年間費用のスライダーは維持する。
 - `S5_DECISIONS = HUMAN_APPROVED`、`S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`（維持）、`S5_IMPLEMENTATION = NOT_COMPLETE`。S5全体のCOMPLETE / READY_ALLは宣言しない。
+
+### 検索の残課題の補完（S5、DEC-068、2026-10-18）
+
+DEC-068（S5検索の残課題：年間費用上端・無制限予算・非アクティブタグ・行政区粒度を確定）: **RESOLVED / HUMAN_APPROVED**（H1・H2・H5・H7）。DEC-066・DEC-067の既存承認は変更しない。共通仕様は`docs/search-s5-spec.md`。意思決定の状態であり、実装完了ではない。
+
+| 項目 | 意思決定 | 実装 | 要件の完了状態 |
+| --- | --- | --- | --- |
+| H1 年間費用の上端 | RESOLVED / HUMAN_APPROVED（「20,000円以上」は予算上限なし。実額を切り捨てない） | 未実装 | 未完了。内部表現・API parameter形式は技術設計 / 実装PR |
+| H2 上限なし予算と欠損値 | RESOLVED / HUMAN_APPROVED（上限なしでは下限既知・上限不明を条件付きで一致。未回答は不一致。filter無指定では除外しない） | 未実装 | 未完了。DB符号化・CHECK・migrationは技術設計 / PRレビュー |
+| H5 タグの非アクティブ化 | RESOLVED / HUMAN_APPROVED（R1。新規選択肢から除外し、既存表示・`tagId`検索・タグ名キーワード検索は維持） | 公開タグ一覧APIは未実装。`tags.is_active`は初回migrationで定義済みだがORM未マッピング。実DBへの適用は未確認 | 未完了 |
+| H7 市区町村の選択粒度 | RESOLVED / HUMAN_APPROVED（政令指定都市は市単位、東京都23特別区は区単位。行政区情報を失わない） | 未実装（`city`は自由記述で地域コードの列なし） | 沿線・駅の実装までエリア検索はPARTIAL |
+
+- 未決: H4（年間費用のカード・response表示）は後続に保留。H6（地域マスターの取得元・利用条件・更新方式）とH9（オンライン併用データの判別 / 移行基準）は技術設計・PRレビューで具体化する。H3・H8・H10は既存承認の範囲内で解釈する。
+- 事実訂正: 以前のrepository docsとNotion DEC-066・DEC-067にあった「`tags`テーブルにactive / inactiveを表す列がない」は誤記だった。初回migrationで`is_active`列は定義済みである。
+- `S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`（維持）、`S5_IMPLEMENTATION = NOT_COMPLETE`。FR-004・FR-005、S5全体のCOMPLETE / READY_ALLは宣言しない。
 
 ### 検索結果0件時の導線（FR-005、DEC-067、2026-10-15）
 
@@ -115,7 +130,7 @@ DEC-067（FR-005の検索結果0件時UXを通常タグによる再検索導線�
 | circle auto deletion | 初期対象外 |
 | paid boost / advertising | 構想のみ。自然推薦に混ぜない |
 | MARCH / 全大学 | 将来phase |
-| S5検索の残課題 | 仕様方針はDEC-066（2026-10-13）で確定済み。DEC-066後も未決: 沿線・駅の時期とデータ提供元、年間費用の上端超過値・上限不明 / 未回答と無制限予算の一致条件・NULLのDB詳細、公開タグ一覧APIの設計、人気タグの再導入時期（詳細は`docs/search-s5-spec.md` 8節）。FR-005の0件時の導線はDEC-067（2026-10-15）で確定済みだが、公開タグ一覧APIとタグ導線は未実装。男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認、rating尺度・UI最終文言確定後の検索利用の再検討も残る |
+| S5検索の残課題 | 仕様方針はDEC-066（2026-10-13）で確定済み。年間費用の上端・上限なし予算と欠損値、非アクティブタグ、市区町村の選択粒度はDEC-068（2026-10-18）で確定済み。未決: 沿線・駅の時期とデータ提供元、地域マスターの取得元・利用条件・更新方式、オンライン併用データの判別 / 移行基準、年間費用の上端の内部表現・NULLのDB符号化・カード / response表示、公開タグ一覧APIのendpoint・response形式・seed、人気タグの再導入時期（詳細は`docs/search-s5-spec.md` 8節）。FR-005の0件時の導線はDEC-067（2026-10-15）で確定済みだが、公開タグ一覧APIとタグ導線は未実装。男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認、rating尺度・UI最終文言確定後の検索利用の再検討も残る |
 
 ## 4. 人の操作・判断が残るもの
 

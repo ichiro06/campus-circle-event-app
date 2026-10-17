@@ -52,6 +52,10 @@
 
 `name`、`slug`、`display_order`、`is_active`を持つ運営管理master。managerは既存tagを選び、新規語は申請して運営確認後に追加する。自由入力文字列をそのまま公開tagにしない。
 
+`is_active`は初回migration（revision `20260915_0001`）でBOOLEAN、NOT NULL、server default trueとして定義済みである。backendのORM（`backend/app_private/models.py`の`Tag`）には未マッピングで、API・mobileは参照していない。実DBへの適用状態は未確認である。
+
+非アクティブ化の意味（DEC-068 H5、2026-10-18）: 非アクティブのtagは、新規のタグ選択肢（公開タグ一覧API）に表示しない。既存の公開revisionに紐付いたtagの表示、既存の`tagId` filterによる検索、キーワードによるtag名検索は維持し、既存revisionを自動的に書き換えない。不適切なtagを公衆から非表示にするモデレーション操作は、非アクティブ化とは別仕様である。
+
 ## 4. Account・profile
 
 ### 4.1 `accounts`
@@ -147,13 +151,15 @@ accountをphysical deleteした場合、`favorites.user_id`の`ON DELETE CASCADE
 
 - `annual_cost_min_yen` / `annual_cost_max_yen`は、団体が自己申告する「入会初年度の標準的な年間費用」を表す。通常の活動参加に必要な費用を対象とし、必須の入会費・会費等を含め、任意イベント等の費用を除く。`circle_costs`の詳細費用項目からの自動合算は行わない。
 - 検索上の状態は、確定額（下限と上限が同額）、金額範囲（下限と上限が異なる）、未回答（0円とは区別）、上限不明（下限は分かるが上限を保証できない）、0円（費用がかからないと団体が回答）を区別する。検索方式はcontainmentである（`docs/search-s5-spec.md` 4.2）。
-- 未決（設計課題）: 上記の状態を現行の2つのnullable列でどう表すか（特に「上限不明」と「未回答」）、上端（20,000円以上）を超える値の扱い、入力・表示・NULLのDB詳細。`circle_costs.amount_max_yen`のNULLには別の意味が存在し得るため、費用明細のNULL意味論は変更せず、年間summaryの意味との違いを設計課題として残す。
+- 検索上の扱い（DEC-068 H1・H2、2026-10-18）: 範囲スライダーの上端「20,000円以上」は予算上限なしを意味し、20,000円の有限上限として扱わない。20,000円を超える実額・上限を20,000円へ切り詰めない。有限上限の予算では上限不明・未回答は一致しない。上限なしの予算では、下限既知・上限不明のサークルは既知下限が利用者の指定下限以上なら一致し、未回答は一致しない。費用filter無指定では、未回答・上限不明を費用条件だけで除外しない（`docs/search-s5-spec.md` 4.2）。
+- [過去] DEC-066時点の未決のうち、上端（20,000円以上）を超える値の扱いと、上限不明・未回答と無制限予算の一致条件は、DEC-068で決定した。
+- 未決（設計課題）: 上記の状態を現行の2つのnullable列でどう表すか（特に「上限不明」と「未回答」）、上限なしの内部表現、具体的なDB符号化・CHECK・migration、入力・表示の詳細。`circle_costs.amount_max_yen`のNULLには別の意味が存在し得るため、費用明細のNULL意味論は変更せず、年間summaryの意味との違いを設計課題として残す。
 
 ### 5.4 `circle_revision_tags`
 
 `revision_id`と`tag_id`の複合PK。cardに出す`is_featured`と`display_order`を持ち、featuredは最大5件とする。
 
-`is_featured`はCircle側のfeatured tag（サークルが自分のページで強調するタグ）であり、運営が全体の人気タグとして指定する機能とは別概念である。タグマスター`tags`は`display_order`を持つが、active / inactiveを表す列は現在ない。公開タグ一覧API（有効なタグを`display_order`順に提示し、非アクティブなタグは表示しない。DEC-066 D3）の実装時に、非アクティブの表現と既存revisionとの関係を設計する（未決）。
+`is_featured`はCircle側のfeatured tag（サークルが自分のページで強調するタグ）であり、運営が全体の人気タグとして指定する機能とは別概念である。タグマスター`tags`は`display_order`と`is_active`を持つ（3.4。`is_active`はORM未マッピング）。公開タグ一覧API（有効なタグを`display_order`順に提示し、非アクティブなタグは表示しない。DEC-066 D3）では、DEC-068 H5により、非アクティブのtagを新規選択肢から除外するだけとし、既存revisionに紐付いたtagの表示と検索は維持する。（事実訂正: 以前の記述「active / inactiveを表す列は現在ない」は誤記だった）
 
 ### 5.5 `activity_schedules`
 
@@ -164,6 +170,8 @@ revision単位で`weekday`（1=月～7=日、null=不定期）、`time_band`（`
 ### 5.6 `activity_locations`
 
 revision単位で都道府県、市区町村、施設名、最寄駅、online flag、任意の公開説明を持つ。正確な集合場所や個人住所は公開fieldへ入れない。
+
+検索上の選択粒度（DEC-068 H7、2026-10-18）: 初期の市区町村filterでは、政令指定都市は市単位（行政区単位では検索させない）、東京都23特別区は各区単位とする。後続で行政区単位の検索を追加できるように、行政区名・元データ・コード情報を失わないデータ設計とし、存在しないコードや由来を推測で補完しない。現行の`prefecture` / `city`は自由記述の文字列で、地域コードの列はない。構造化の方法、地域マスターの取得元・利用条件・更新方式、オンライン併用データの判別・移行基準は未決である（`docs/search-s5-spec.md` 8節）。
 
 ### 5.7 `circle_costs`
 
