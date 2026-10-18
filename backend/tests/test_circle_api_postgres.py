@@ -123,6 +123,8 @@ def _circle(
 
 
 def _cleanup_fixture(session: Session) -> None:
+    # D4 rows reference the shared category, so remove them first.
+    _cleanup_schedule_fixture(session)
     all_circle_ids = (*CIRCLE_IDS, TRANSIENT_CIRCLE_ID, *KEYSET_CIRCLE_IDS)
     all_revision_ids = (*REVISION_IDS, TRANSIENT_REVISION_ID, *KEYSET_REVISION_IDS)
     session.execute(
@@ -878,3 +880,338 @@ def test_missing_cursor_secret_only_disables_formal_circle_reads(monkeypatch) ->
     assert "Traceback" not in circle_response.text
     assert "/Users/" not in circle_response.text
     assert "backend/circles" not in circle_response.text
+
+
+# DEC-066 D4: activity weekday / timeBand search semantics. The fixture rows are
+# isolated by their own ids and display-name prefix, are created only for the
+# TestActivityScheduleSearch class, and are removed after it (and by
+# _cleanup_fixture), so the expectations of the other tests are not affected.
+D4_QUERY = "D4 Schedule Fixture"
+D4_KEYS = (
+    "mon_morning_tue_night",
+    "mon_all_day",
+    "mon_morning_tue_all_day",
+    "mon_night",
+    "irregular_only",
+    "null_weekday_night",
+    "mon_irregular",
+    "no_schedule",
+    "unpublished_night",
+    "wed_evening_sat_daytime",
+)
+D4_CIRCLE_IDS = {
+    key: UUID(f"20000000-0000-0000-0000-{1101 + index:012d}") for index, key in enumerate(D4_KEYS)
+}
+D4_REVISION_IDS = {
+    key: UUID(f"20000000-0000-0000-0000-{1201 + index:012d}") for index, key in enumerate(D4_KEYS)
+}
+D4_DRAFT_REVISION_ID = UUID("20000000-0000-0000-0000-000000001299")
+D4_ALL_REVISION_IDS = (*D4_REVISION_IDS.values(), D4_DRAFT_REVISION_ID)
+# (revision key, weekday, time_band); weekday None is the irregular weekday.
+D4_SCHEDULES: tuple[tuple[str, int | None, str], ...] = (
+    ("mon_morning_tue_night", 1, "morning"),
+    ("mon_morning_tue_night", 2, "night"),
+    ("mon_all_day", 1, "all_day"),
+    # A second matching row on the same revision must not duplicate the Circle.
+    ("mon_all_day", 1, "night"),
+    ("mon_morning_tue_all_day", 1, "morning"),
+    ("mon_morning_tue_all_day", 2, "all_day"),
+    ("mon_night", 1, "night"),
+    ("irregular_only", None, "irregular"),
+    ("null_weekday_night", None, "night"),
+    ("mon_irregular", 1, "irregular"),
+    ("unpublished_night", 1, "morning"),
+    ("wed_evening_sat_daytime", 3, "evening"),
+    ("wed_evening_sat_daytime", 6, "daytime"),
+)
+
+
+def _cleanup_schedule_fixture(session: Session) -> None:
+    circle_ids = tuple(D4_CIRCLE_IDS.values())
+    session.execute(
+        update(ProductCircle)
+        .where(ProductCircle.id.in_(circle_ids))
+        .values(published_revision_id=None)
+    )
+    session.execute(
+        delete(ActivitySchedule).where(ActivitySchedule.revision_id.in_(D4_ALL_REVISION_IDS))
+    )
+    session.execute(delete(CircleRevision).where(CircleRevision.id.in_(D4_ALL_REVISION_IDS)))
+    session.execute(delete(ProductCircle).where(ProductCircle.id.in_(circle_ids)))
+    session.commit()
+
+
+def _d4(*keys: str) -> set[str]:
+    return {str(D4_CIRCLE_IDS[key]) for key in keys}
+
+
+def _d4_search(client: TestClient, params: list[tuple[str, str]], **extra: str):
+    query = [("q", D4_QUERY), ("limit", "50"), *params, *extra.items()]
+    return client.get("/api/v1/circles", params=query)
+
+
+def _assert_d4_result(response, expected: set[str]) -> None:
+    ids = _ids(response)
+    assert len(ids) == len(set(ids)), "a Circle must not be duplicated"
+    assert set(ids) == expected
+    assert response.json()["page"]["totalCount"] == len(expected)
+
+
+@pytest.fixture(scope="class")
+def schedule_fixture() -> Iterator[None]:
+    with SessionLocal() as session:
+        _cleanup_schedule_fixture(session)
+        session.execute(
+            insert(ProductCircle),
+            [
+                _circle(
+                    D4_CIRCLE_IDS[key],
+                    official_status="unofficial" if key == "mon_night" else "official",
+                )
+                for key in D4_KEYS
+            ],
+        )
+        session.execute(
+            insert(CircleRevision),
+            [
+                _revision(
+                    D4_REVISION_IDS[key],
+                    D4_CIRCLE_IDS[key],
+                    display_name=f"{D4_QUERY} {key}",
+                    published_at=PUBLISHED_AT - timedelta(days=10, minutes=index),
+                )
+                for index, key in enumerate(D4_KEYS)
+            ]
+            + [
+                _revision(
+                    D4_DRAFT_REVISION_ID,
+                    D4_CIRCLE_IDS["unpublished_night"],
+                    status="draft",
+                    display_name=f"{D4_QUERY} unpublished draft",
+                    published_at=None,
+                    version_no=2,
+                )
+            ],
+        )
+        for key in D4_KEYS:
+            session.execute(
+                update(ProductCircle)
+                .where(ProductCircle.id == D4_CIRCLE_IDS[key])
+                .values(published_revision_id=D4_REVISION_IDS[key])
+            )
+        schedule_rows = [
+            {
+                "id": UUID(f"20000000-0000-0000-0000-{1301 + index:012d}"),
+                "revision_id": D4_REVISION_IDS[key],
+                "weekday": weekday,
+                "time_band": time_band,
+                "starts_at": None,
+                "ends_at": None,
+                "note": None,
+                "display_order": index,
+            }
+            for index, (key, weekday, time_band) in enumerate(D4_SCHEDULES)
+        ]
+        # The draft (unpublished) revision has a Monday-night row that must never match.
+        schedule_rows.append(
+            {
+                "id": UUID("20000000-0000-0000-0000-000000001399"),
+                "revision_id": D4_DRAFT_REVISION_ID,
+                "weekday": 1,
+                "time_band": "night",
+                "starts_at": None,
+                "ends_at": None,
+                "note": None,
+                "display_order": 0,
+            }
+        )
+        session.execute(insert(ActivitySchedule), schedule_rows)
+        session.commit()
+
+    yield
+
+    with SessionLocal() as session:
+        _cleanup_schedule_fixture(session)
+
+
+REGULAR_BANDS = ("morning", "daytime", "evening", "night")
+
+
+@pytest.mark.usefixtures("schedule_fixture")
+class TestActivityScheduleSearch:
+    @pytest.mark.parametrize(
+        ("params", "expected_keys"),
+        [
+            # Weekday and timeBand must match on the same schedule row.
+            ([("weekday", "1"), ("timeBand", "night")], ("mon_all_day", "mon_night")),
+            ([("weekday", "1"), ("timeBand", "all_day")], ("mon_all_day",)),
+            ([("weekday", "2"), ("timeBand", "morning")], ("mon_morning_tue_all_day",)),
+            # all_day matches each regular band, but all_day alone does not widen.
+            ([("timeBand", "all_day")], ("mon_all_day", "mon_morning_tue_all_day")),
+            (
+                [("timeBand", "night")],
+                (
+                    "mon_morning_tue_night",
+                    "mon_all_day",
+                    "mon_morning_tue_all_day",
+                    "mon_night",
+                    "null_weekday_night",
+                ),
+            ),
+            # irregular matches only itself.
+            ([("timeBand", "irregular")], ("irregular_only", "mon_irregular")),
+            (
+                [("timeBand", "night"), ("timeBand", "irregular")],
+                (
+                    "mon_morning_tue_night",
+                    "mon_all_day",
+                    "mon_morning_tue_all_day",
+                    "mon_night",
+                    "null_weekday_night",
+                    "irregular_only",
+                    "mon_irregular",
+                ),
+            ),
+            # weekday=irregular is the NULL weekday.
+            ([("weekday", "irregular"), ("timeBand", "night")], ("null_weekday_night",)),
+            ([("weekday", "irregular")], ("irregular_only", "null_weekday_night")),
+            # Weekday only: no implicit time-band restriction.
+            (
+                [("weekday", "1")],
+                (
+                    "mon_morning_tue_night",
+                    "mon_all_day",
+                    "mon_morning_tue_all_day",
+                    "mon_night",
+                    "mon_irregular",
+                    "unpublished_night",
+                ),
+            ),
+            # Same filter OR, different filters AND.
+            (
+                [
+                    ("weekday", "1"),
+                    ("weekday", "3"),
+                    ("timeBand", "evening"),
+                    ("timeBand", "daytime"),
+                ],
+                ("mon_all_day", "wed_evening_sat_daytime"),
+            ),
+            (
+                [("weekday", "2"), ("weekday", "6"), ("timeBand", "night")],
+                ("mon_morning_tue_night", "mon_morning_tue_all_day"),
+            ),
+            # The unpublished revision's Monday-night row never matches.
+            (
+                [("weekday", "1"), ("timeBand", "morning")],
+                (
+                    "mon_morning_tue_night",
+                    "mon_all_day",
+                    "mon_morning_tue_all_day",
+                    "unpublished_night",
+                ),
+            ),
+            # No schedule filter: nothing is excluded for its schedules.
+            ([], D4_KEYS),
+        ],
+    )
+    @pytest.mark.parametrize("sort", ["newest", "most_favorited"])
+    def test_weekday_and_time_band_semantics(
+        self,
+        client: TestClient,
+        params: list[tuple[str, str]],
+        expected_keys: tuple[str, ...],
+        sort: str,
+    ) -> None:
+        response = _d4_search(client, params, sort=sort)
+
+        _assert_d4_result(response, _d4(*expected_keys))
+
+    @pytest.mark.parametrize("band", REGULAR_BANDS)
+    def test_irregular_time_band_never_matches_a_regular_band(
+        self, client: TestClient, band: str
+    ) -> None:
+        response = _d4_search(client, [("timeBand", band)])
+        ids = set(_ids(response))
+
+        assert ids.isdisjoint(_d4("irregular_only", "mon_irregular", "no_schedule"))
+        assert _d4("mon_all_day") <= ids
+
+    def test_mixed_schedule_rows_do_not_combine_across_rows(self, client: TestClient) -> None:
+        # Monday-morning + Tuesday-night, and Monday-morning + Tuesday-all_day.
+        response = client.get(
+            "/api/v1/circles",
+            params=[("weekday", "1"), ("timeBand", "night"), ("limit", "50")],
+        )
+        ids = set(_ids(response))
+
+        assert ids.isdisjoint(
+            _d4("mon_morning_tue_night", "mon_morning_tue_all_day", "unpublished_night")
+        )
+        assert _d4("mon_all_day", "mon_night") <= ids
+
+    def test_schedule_filters_are_and_with_other_structured_filters(
+        self, client: TestClient
+    ) -> None:
+        unofficial = _d4_search(
+            client, [("weekday", "1"), ("timeBand", "night"), ("officialStatus", "unofficial")]
+        )
+        official = _d4_search(
+            client, [("weekday", "1"), ("timeBand", "night"), ("officialStatus", "official")]
+        )
+
+        _assert_d4_result(unofficial, _d4("mon_night"))
+        _assert_d4_result(official, _d4("mon_all_day"))
+
+    @pytest.mark.parametrize("sort", ["newest", "most_favorited"])
+    def test_paginated_schedule_search_has_no_gaps_or_duplicates(
+        self, client: TestClient, sort: str
+    ) -> None:
+        params = [("q", D4_QUERY), ("timeBand", "night"), ("sort", sort), ("limit", "2")]
+        expected = _d4(
+            "mon_morning_tue_night",
+            "mon_all_day",
+            "mon_morning_tue_all_day",
+            "mon_night",
+            "null_weekday_night",
+        )
+        collected: list[str] = []
+        response = client.get("/api/v1/circles", params=params)
+        while True:
+            collected.extend(_ids(response))
+            page = response.json()["page"]
+            assert page["totalCount"] == len(expected)
+            if not page["hasMore"]:
+                break
+            response = client.get(
+                "/api/v1/circles", params=[*params, ("cursor", page["nextCursor"])]
+            )
+
+        assert len(collected) == len(set(collected))
+        assert set(collected) == expected
+
+    @pytest.mark.parametrize(
+        "changed",
+        [
+            [("weekday", "2"), ("timeBand", "night")],
+            [("weekday", "1"), ("timeBand", "evening")],
+            [("weekday", "1")],
+            [("timeBand", "night")],
+            [("weekday", "1"), ("timeBand", "night"), ("timeBand", "all_day")],
+        ],
+    )
+    def test_cursor_is_bound_to_the_schedule_filters(
+        self, client: TestClient, changed: list[tuple[str, str]]
+    ) -> None:
+        first = _d4_search(client, [("weekday", "1"), ("timeBand", "night")], limit="1")
+        cursor = first.json()["page"]["nextCursor"]
+        assert cursor is not None
+
+        reused = client.get(
+            "/api/v1/circles",
+            params=[("q", D4_QUERY), ("limit", "1"), ("cursor", cursor), *changed],
+        )
+
+        assert reused.status_code == 400
+        assert reused.headers["content-type"].startswith("application/problem+json")
+        assert reused.json()["code"] == "INVALID_CURSOR"

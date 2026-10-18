@@ -214,7 +214,7 @@ DEC-066で未決だった次の項目は、DEC-068（2026-10-18）で決定し�
 
 ## 9. 現在の実装状態（2026-10-18更新、事実の記録）
 
-本書の更新はdocs-onlyであり、backend、mobile、DB migration、OpenAPI生成物は変更していない。
+[過去] DEC-068同期（PR #42）時点の本書の更新はdocs-onlyであり、backend、mobile、DB migration、OpenAPI生成物は変更していなかった。2026-10-18のD4実装PRでは、backendの活動時間帯filter（下表「活動時間帯」）だけを変更した。mobile、DB migration、OpenAPI生成物は変更していない。
 
 | 領域 | 状態 |
 | --- | --- |
@@ -223,7 +223,7 @@ DEC-066で未決だった次の項目は、DEC-068（2026-10-18）で決定し�
 | 公開タグ一覧API | 未実装。`tagId` filterは実装済み |
 | `tags.is_active` | 初回migration（revision `20260915_0001`）で`categories`・`tags`の両方に`is_active`（BOOLEAN、NOT NULL、server default true）を定義済み。backendのORM（`backend/app_private/models.py`の`Tag`）には未マッピングで、API・mobileは参照していない。実DBへの適用状態は未確認。以前の「active / inactiveを表す列がない」という記述は事実誤記であり、Notion DEC-066・DEC-067とあわせて訂正した |
 | タグの既存表示・検索（DEC-068 H5の維持対象） | `tagId` filter、`q`によるタグ名（`Tag.name`）の部分一致検索、Circleのタグ表示は実装済みで、いずれも`is_active`を参照していない |
-| 活動時間帯 | `weekday`と`timeBand`はそれぞれ独立した存在判定で評価され、同一のactivity scheduleレコードでの一致確認になっていない。`all_day`を各時間帯へ展開しておらず、`irregular`は`timeBand=irregular`を指定したときだけ一致する。D4を満たすには実装PRでの変更が必要 |
+| 活動時間帯 | backendに実装済み（2026-10-18のD4実装PR）。`weekday`と`timeBand`は公開revisionの同一activity scheduleレコードに対する1つの存在判定で評価する。通常4時間帯の指定は`all_day`にも一致し、`all_day` / `irregular`の単独指定はその値だけに一致する。両filter未指定時はschedule条件を加えない。API parameter・enum・response・cursor仕様は変更なし。mobileの曜日・時間帯UIは未実装。[過去] D4実装PR前は、`weekday`と`timeBand`をそれぞれ独立した存在判定で評価し、`all_day`を各時間帯へ展開していなかった |
 | mobile | S5の上記filter UIは未実装 |
 | 0件時の導線（DEC-067） | 条件ありの0件で「条件に合うサークルが見つかりません」と、キーワードと現行の全filterを解除する「検索条件を解除」を表示する（実装済み）。0件と通信エラーの分岐（loading → error → empty）も実装済み。この現行画面は公開タグ一覧API未実装の期間の暫定利用であり、D2〜D5を満たすものではない。未実装: 「検索条件を見直す」の独立した操作、名称「検索条件をすべて解除」への変更、「タグから探し直す」導線と説明文、公開タグ一覧API、mobileの検索画面（`SearchScreen`）での`tagId`の設定・送信とタグ選択UI（API query型・`CircleListFilters`は既存の`tagId` filterに対応済み）、タグ一覧API不可時の分岐、直前条件へ戻す操作 |
 

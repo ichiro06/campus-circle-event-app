@@ -132,7 +132,16 @@ Work 2の正式な公開read endpointは次の2つである。データ源はPos
 > **S5検索の承認済み意味論と現行契約の差（DEC-066、2026-10-13。契約の変更ではなく差分の記録）**
 >
 > - 上記のfilter集合と「異なるfilter間はAND」は現行契約として変更しない。年間費用、都道府県・市区町村、公開タグ一覧は、承認済みの検索意味論（`docs/search-s5-spec.md`）はあるが、parameter名・endpoint・response形式は未承認であり、この契約にまだ含まれない。
-> - `weekday`と`timeBand`が同時に指定された場合、DEC-066 D4は同一のactivity scheduleレコードでの一致を要求する。`timeBand`は`all_day`が午前・昼・夕方・夜（`morning`、`daytime`、`evening`、`night`）の各指定に一致し、`irregular`は通常の4つの指定に一致しない。現行実装は`weekday`と`timeBand`を独立した存在判定で評価しており、この意味論を満たさない。実装PRで契約・実装・testを更新する。
+> - `weekday`と`timeBand`が同時に指定された場合、DEC-066 D4は同一のactivity scheduleレコードでの一致を要求する。`timeBand`は`all_day`が午前・昼・夕方・夜（`morning`、`daytime`、`evening`、`night`）の各指定に一致し、`irregular`は通常の4つの指定に一致しない。
+> - [過去] 2026-10-18のD4実装PRまで、backendは`weekday`と`timeBand`を独立した存在判定で評価しており、この意味論を満たしていなかった。
+
+`weekday`・`timeBand`の検索意味論（DEC-066 D4。2026-10-18のD4実装PRでbackendへ実装）:
+
+- `weekday`と`timeBand`は、公開revisionの同一`activity_schedules`レコードに対する1つの存在判定で評価する。別々のスケジュール行の条件を組み合わせて一致させない（例: 月曜日・朝と火曜日・夜の予定を持つCircleは`weekday=1&timeBand=night`に一致しない）。
+- `weekday`は`1`〜`7`をDBの曜日値、`irregular`をDBの`NULL`に対応させ、複数指定はORとする。`weekday`だけを指定した場合、時間帯による暗黙の制限は加えない。
+- `timeBand`で`morning`・`daytime`・`evening`・`night`のいずれかを指定した場合、`all_day`の活動予定も一致させる。`all_day`・`irregular`を単独で指定した場合は、その値だけに一致する（`all_day`指定で通常4時間帯へ広げない。`irregular`を通常4時間帯へ展開しない）。`timeBand`だけを指定した場合、曜日による暗黙の制限は加えない。
+- `weekday`と`timeBand`の両方が未指定の場合、activity scheduleに関する条件を加えない。活動予定が未登録のCircleや不定期の活動予定だけを持つCircleも除外しない。
+- parameter名、enum値、response、`totalCount`、sort、cursorのfilter binding（利用者が指定した正規化済みの値に束縛し、`all_day`への展開後の値には束縛しない）は変更しない。
 
 `q`はtrim後の1つのliteral substringとして、display name、headline、summary、description、大学名、campus名、tag名、活動場所の都道府県・市区町村・施設名・最寄駅・公開noteを検索する。`%`と`_`はwildcardではなくliteralとしてescapeし、空白だけの明示的な`q`は`422 VALIDATION_ERROR`とする。日本語形態素解析、かな正規化、類義語、relevance rankingは行わない。
 

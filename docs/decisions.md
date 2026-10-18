@@ -1015,7 +1015,8 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 
 ### 現在の実装状態との関係（事実の記録。本Decisionと本repositoryの同期は実装を行わない）
 
-- 公開Circle一覧filter（`backend/circles/repository.py`）は、`weekday`と`timeBand`を独立した存在判定で評価しており、D4の同一activity scheduleレコード判定を満たしていない。`all_day`の各時間帯への展開もない。D4の実装には別のimplementation PRが必要である。
+- [過去] 公開Circle一覧filter（`backend/circles/repository.py`）は、`weekday`と`timeBand`を独立した存在判定で評価しており、D4の同一activity scheduleレコード判定を満たしていない。`all_day`の各時間帯への展開もない。D4の実装には別のimplementation PRが必要である。
+  - 【2026-10-18 追記】D4実装PRで、`weekday`と`timeBand`を公開revisionの同一`activity_schedules`レコードに対する1つの存在判定へ変更し、通常4時間帯の指定で`all_day`も一致させた（`all_day` / `irregular`の単独指定は明示一致のまま）。API parameter・enum・response・cursor仕様は変更していない。本追記は実装事実の記録であり、D4の決定内容は変更しない。mobileのUIとS5の他領域は未実装である。
 - 年間費用filter、都道府県・市区町村の構造化filter、公開タグ一覧APIは存在しない。`tagId` filterは存在する。
 - `tags`テーブルには、初回migration（revision `20260915_0001`）で`is_active`列（BOOLEAN、NOT NULL、server default true）が定義済みである。ただしbackendのORM（`backend/app_private/models.py`の`Tag`）には未マッピングで、API・mobileはこの列を参照していない。実DBへの適用状態は未確認である。（事実訂正: 以前の記述「active / inactiveを表す列がない」は誤記だった。DEC-068で指摘し、Notion DEC-066の同記述も訂正済み）
 

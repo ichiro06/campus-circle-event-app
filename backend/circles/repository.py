@@ -132,6 +132,57 @@ def _escaped_like_pattern(value: str) -> str:
     return f"%{escaped}%"
 
 
+# DEC-066 D4: an ``all_day`` schedule matches each of these regular time-band searches.
+REGULAR_TIME_BANDS = frozenset({"morning", "daytime", "evening", "night"})
+ALL_DAY_TIME_BAND = "all_day"
+IRREGULAR_WEEKDAY = "irregular"
+
+
+def effective_time_bands(selected: tuple[str, ...]) -> tuple[str, ...]:
+    """Expand the requested ``timeBand`` values into the stored values they match.
+
+    DEC-066 D4: selecting any regular band also matches ``all_day`` schedules. The
+    special values match only themselves: ``all_day`` alone is not widened to the
+    regular bands, and ``irregular`` never matches (nor expands to) a regular band.
+    """
+
+    effective = set(selected)
+    if effective & REGULAR_TIME_BANDS:
+        effective.add(ALL_DAY_TIME_BAND)
+    return tuple(sorted(effective))
+
+
+def _activity_schedule_predicate(filters: CircleFilters) -> ColumnElement[bool] | None:
+    """One EXISTS over a single ``activity_schedules`` row of the published revision.
+
+    DEC-066 D4: when both ``weekday`` and ``timeBand`` are given, the same schedule
+    row must satisfy both, so conditions from different rows never combine into a
+    match. Values within one filter are OR. An unspecified filter adds no condition,
+    and with neither filter no schedule predicate is added at all, so Circles with
+    only irregular schedules (or none) stay in unfiltered results.
+    """
+
+    if not filters.weekdays and not filters.time_bands:
+        return None
+
+    row_conditions: list[ColumnElement[bool]] = [
+        ActivitySchedule.revision_id == CircleRevision.id,
+    ]
+    if filters.weekdays:
+        weekday_numbers = [int(value) for value in filters.weekdays if value != IRREGULAR_WEEKDAY]
+        weekday_options: list[ColumnElement[bool]] = []
+        if weekday_numbers:
+            weekday_options.append(ActivitySchedule.weekday.in_(weekday_numbers))
+        if IRREGULAR_WEEKDAY in filters.weekdays:
+            weekday_options.append(ActivitySchedule.weekday.is_(None))
+        row_conditions.append(or_(*weekday_options))
+    if filters.time_bands:
+        row_conditions.append(
+            ActivitySchedule.time_band.in_(effective_time_bands(filters.time_bands))
+        )
+    return select(literal(1)).select_from(ActivitySchedule).where(*row_conditions).exists()
+
+
 def public_visibility_predicates() -> tuple[ColumnElement[bool], ...]:
     """The one public visibility predicate shared by list and detail."""
 
@@ -367,32 +418,9 @@ class CircleRepository:
                 )
                 .exists()
             )
-        if filters.weekdays:
-            weekday_numbers = [int(value) for value in filters.weekdays if value != "irregular"]
-            weekday_options: list[ColumnElement[bool]] = []
-            if weekday_numbers:
-                weekday_options.append(ActivitySchedule.weekday.in_(weekday_numbers))
-            if "irregular" in filters.weekdays:
-                weekday_options.append(ActivitySchedule.weekday.is_(None))
-            predicates.append(
-                select(literal(1))
-                .select_from(ActivitySchedule)
-                .where(
-                    ActivitySchedule.revision_id == CircleRevision.id,
-                    or_(*weekday_options),
-                )
-                .exists()
-            )
-        if filters.time_bands:
-            predicates.append(
-                select(literal(1))
-                .select_from(ActivitySchedule)
-                .where(
-                    ActivitySchedule.revision_id == CircleRevision.id,
-                    ActivitySchedule.time_band.in_(filters.time_bands),
-                )
-                .exists()
-            )
+        schedule_match = _activity_schedule_predicate(filters)
+        if schedule_match is not None:
+            predicates.append(schedule_match)
         if filters.q is not None:
             pattern = _escaped_like_pattern(filters.q)
             university_match = (
