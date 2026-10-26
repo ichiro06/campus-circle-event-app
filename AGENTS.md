@@ -47,6 +47,7 @@
 - 仕様、設計、環境構成、運用手順を変更した場合は、関連する文書も更新する。
 - 単なる実装変更で仕様や手順に変化がない場合は、不要な文書変更を行わない。
 - 文書とコード・設定が矛盾する場合は、勝手に片方へ合わせない。矛盾、根拠、影響を報告する。
+- When a repository's documentation and its existing code disagree, follow the conventions used in the existing code, and in your final reply point out each inconsistency you found between the documentation and the code.
 - 秘密情報、個人用トークン、秘密鍵、本番認証情報をコミットしない。
 - ユーザーの既存変更を勝手に取り消さない。
 
