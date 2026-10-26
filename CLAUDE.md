@@ -37,6 +37,7 @@ Notion を読めない環境（クラウドセッションで Notion connector �
 - 文書は日本語＋技術用語は英語表記の既存スタイルに合わせる。
 - commit メッセージの規則は文書化されていない（未確認）。既存履歴は `type(scope): summary` 形式。
 - branch 名は `docs/development-workflow.md`「14. AI coding agentの役割分担」に従い、Claude Code は `claude/<topic>` を使う。
+- When a repository's documentation and its existing code disagree, follow the conventions used in the existing code, and in your final reply point out each inconsistency you found between the documentation and the code.
 
 ## Git 運用（Claude Code）
 
