@@ -58,7 +58,7 @@ DEC-066（S5検索のエリア段階実装・年間費用・通常タグ検索�
 | HD-1 エリア（D1） | RESOLVED / HUMAN_APPROVED（都道府県・市区町村を先行、沿線・駅は後続。選択粒度はDEC-068 H7） | 未実装 | 沿線・駅の実装まで元のMust要件に対して**PARTIAL** |
 | HD-2 年間費用（D2） | RESOLVED / HUMAN_APPROVED（自己申告の入会初年度の標準的な年間費用、containment、範囲スライダー。上端と欠損値はDEC-068 H1・H2） | 未実装 | 未完了。上端の内部表現・NULLのDB符号化・カード / response表示は設計課題 |
 | HD-3 タグ（D3） | RESOLVED / HUMAN_APPROVED（通常タグ検索7語彙、人気タグの特別扱いは初期除外。非アクティブ化の意味はDEC-068 H5） | `tagId` filterのみ。公開タグ一覧APIは未実装 | 人気タグの特別機能を提供しないまま元の「人気タグ」要件をCOMPLETEにしない |
-| HD-4 活動時間帯（D4） | RESOLVED / HUMAN_APPROVED（`all_day` / `irregular`の意味論、曜日×時間帯は同一activity schedule） | 現行filterは未対応（曜日と時間帯を独立判定。`all_day`は展開なし） | 未完了 |
+| HD-4 活動時間帯（D4） | RESOLVED / HUMAN_APPROVED（`all_day` / `irregular`の意味論、曜日×時間帯は同一activity schedule） | backendの公開Circle一覧filterへ実装（2026-10-18のD4実装PR。同一activity schedule行での単一存在判定、通常4時間帯指定で`all_day`も一致）。mobileの曜日・時間帯UIは未実装。[過去] D4実装PR前は曜日と時間帯を独立判定し、`all_day`は展開なし | backend sliceのみ実装。S5全体は未完了 |
 
 - 沿線・駅は削除した要件ではなく、実装を後続段階へ移した要件である。後続の開発日、リリース日、鉄道マスターの提供元、ライセンス、費用は未決。
 - DEC-062 / DEC-063は変更しない（5 rating検索除外、男女比UIは回答済み4 category、合宿・規模・活動頻度は離散chip、W4 COMPLETE、FR-017 PARTIAL）。レンジスライダー不採用は合宿・規模・活動頻度だけで、年間費用のスライダーは維持する。

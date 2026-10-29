@@ -10,7 +10,12 @@ from api.errors import InvalidCursorError
 from api.models import PageMetadata
 from app_private.models import ProductBase
 from circles.cursor import SignedCircleCursorCodec
-from circles.repository import CirclePage, CircleRepository, PagePosition
+from circles.repository import (
+    CirclePage,
+    CircleRepository,
+    PagePosition,
+    effective_time_bands,
+)
 from circles.schemas import CircleListQuery, CirclePageMetadata
 from circles.service import CircleReadService
 from database import Base
@@ -230,3 +235,37 @@ def test_the_keyset_position_for_most_favorited_requires_a_favorite_count() -> N
             after=PagePosition(published_at=None, circle_id=UUID(int=1)),
             limit=21,
         )
+
+
+@pytest.mark.parametrize(
+    ("selected", "expected"),
+    [
+        (("night",), ("all_day", "night")),
+        (("morning",), ("all_day", "morning")),
+        (("daytime", "evening"), ("all_day", "daytime", "evening")),
+        (("irregular", "night"), ("all_day", "irregular", "night")),
+        (("all_day",), ("all_day",)),
+        (("irregular",), ("irregular",)),
+        (("all_day", "irregular"), ("all_day", "irregular")),
+        (("all_day", "night"), ("all_day", "night")),
+    ],
+)
+def test_time_band_search_expands_regular_bands_to_all_day_only(
+    selected: tuple[str, ...],
+    expected: tuple[str, ...],
+) -> None:
+    """DEC-066 D4: regular bands also match all_day; special values match only themselves."""
+
+    assert effective_time_bands(selected) == expected
+
+
+def test_schedule_filters_compile_to_one_exists_over_the_same_schedule_row() -> None:
+    repository = CircleRepository(cast(Session, None))
+
+    both = CircleListQuery(weekday=["1"], time_band=["night"]).normalized_filters()
+    neither = CircleListQuery().normalized_filters()
+    both_sql = str(repository.build_count_statement(both))
+    neither_sql = str(repository.build_count_statement(neither))
+
+    assert both_sql.count("FROM app_private.activity_schedules") == 1
+    assert "activity_schedules" not in neither_sql
