@@ -18,6 +18,12 @@ Notion を読めない環境（クラウドセッションで Notion connector �
 - S5検索（FR-004）に関する作業では、`docs/search-s5-spec.md`を読み、Notionを読める環境では承認済みDecision（DEC-062・063・066）も確認する（`AGENTS.md`参照）。仕様全文はここへ複製しない。
 - クラウドセッションのNotion connectorが未接続なら、同期済みdocsを読み取り・診断の範囲で使い、要件の承認・変更を独断で行わない。「仕様承認済み」を「実装済み」と扱わない。
 
+## モバイルUIの作業
+
+- モバイルUIの実装・レビュー（画面、component、loading表現、色、visual refinement）では、着手前に`docs/ui-design-guidelines.md`と`docs/screen-flow.md`を読む。承認済みの方針（DEC-069: 白基調、Liquid Glass、全画面Skeletonローディング）の扱いは`AGENTS.md`に従う。ここへ複製しない。
+- Notionを読める環境では、Notion意思決定ログのDEC-069も確認する。読めない環境では同期済みdocsを読み取り・診断の範囲で使い、未決の設計事項を独断で決めない。
+- UIの見た目・native挙動の完了は、iOS Simulator / Android Emulator / 実機での確認が必要である（「完了条件」参照）。
+
 ## コマンド早見表
 
 | 対象 | 検証 |

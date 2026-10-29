@@ -25,6 +25,46 @@
 
 この文書は、正式なproduct requirement、security・privacy要件、API契約、認証・認可、非機能要件を置き換えない。具体的な画面の採否や仕様変更が必要になった場合は、既存の正式文書とHuman Decisionを優先する。
 
+### 1.1 承認済みのvisual direction（DEC-069）
+
+Human Decision DEC-069（2026-10-18、Human Approved: YES）により、製品モバイルUIの次の2点が承認済みの方針である。これは新たな検討事項ではない。
+
+1. **全画面スケルトンローディングを導入する。**
+2. **Liquid Glass UIを採用し、色は白を基調とする。**
+
+#### 状態の区別
+
+| 区分 | 状態 |
+| --- | --- |
+| 白基調・Liquid Glass・全画面Skeletonという方向性 | 承認済み（`MOBILE_UI_VISUAL_DIRECTION = HUMAN_APPROVED`） |
+| 具体的なカラーコード、design token、Liquid Glassの対象component・外観、画面別適用、fallback方式 | **未確定**（`MOBILE_UI_DESIGN_DETAILS = PENDING_TECHNICAL_DESIGN`）。後続の技術設計で決める |
+| UI実装 | 未完了（`MOBILE_UI_IMPLEMENTATION = NOT_COMPLETE`）。本節の追加は実装の開始・完了を意味しない |
+
+「色値やdesign tokenを正式採用しない」という8節の記述は、具体値が未確定であることを指す。白基調という方向性は承認済みだが、具体的なカラーコード・tokenは未確定である。両者は矛盾しない。
+
+#### 方針の内容
+
+- **白を基調とするモバイルUI**: 背景・表面の基調を白とする方向を承認済みとする。accent、テキスト、境界、skeletonの色と、dark modeの扱いは未確定である。
+- **Liquid Glass**: iOS・Android共通の「ホウクルのUI方針」として採用する。どのcomponent（tab、navigation、sheet、buttonsなど）に適用するか、どのような外観にするかは、このPRでは確定しない。コンテンツ層ではなく、navigation・操作要素への適用を優先する方向で技術検討する（Notion DEC-069の記載）が、画面別の採用は固定しない。
+- **全画面スケルトンローディング**: loading表現としてSkeletonを全画面で用いる方針とする。「すべての通信で全画面を強制的に覆う」という意味ではなく、表示条件は [screen-flow.md](screen-flow.md) 5.1の状態契約と両立させる。適用する状況は後続のUI設計で決める。
+- **iOSとAndroidで共通に維持するもの**: 白基調・Liquid Glass・Skeletonが担う「意味」を共通に保つ。具体的には、4節の「Shared Product Identity」に挙げた、状態の意味（loading・empty・error・offline）、contentの優先順位、基本的な色の役割を、この方針でも変えない。
+- **platformごとの適用・fallback**: ネイティブのLiquid Glassを使える環境と使えない環境（旧iOS、Android）での代替表現、Dark Mode、透過軽減設定への対応は、後続の技術設計で具体化する。Android側がM3の慣例から不自然に離れないかも、その設計で確認する。
+
+#### アクセシビリティとの整合
+
+Liquid Glass・白基調・Skeletonは、12節のアクセシビリティ確認を下げる根拠にならない。後続設計と実装では、少なくとも次との整合を確認する。
+
+- 白基調の上でのテキスト・操作要素・Skeletonのcontrast（透過・blurを使う面を含む）
+- Reduce MotionおよびReduce Transparency（iOS）、Android側の同等設定。shimmer等の動きと透過効果は、これらの設定を尊重する
+- VoiceOver / TalkBackへのloading開始・完了の通知（[screen-flow.md](screen-flow.md) 5.1）と、Skeleton自体を読み上げ対象としてどう扱うか
+- Dynamic Type / font scalingでもSkeletonと実コンテンツのレイアウトが大きく乖離しないこと
+
+#### 既存方針・既存決定との関係
+
+- 本節はDEC-069の同期であり、既存のHuman Decisionを変更しない。screen-flowの画面構成、認証・認可境界、4タブ、loading・empty・error・offlineの意味、API契約は変更しない。
+- 現行mobileの実装は、Home・Search・Circle Detailの一部にSkeletonとtheme定数（`mobile/src/components/theme.ts`）を持つ。ただし、これを全画面Skeleton・白基調Liquid Glassの実装済みとは扱わない。
+- Liquid Glassに使える依存の有無・利用方法（`mobile/package.json`、Expo公式資料）は、実装時点で確認する。依存の追加・更新は別の明示された作業で行う。
+
 ## 2. 適用するDesign Phase
 
 この方針は、次の条件がそろった後のdesign refinement phaseで本格適用する。
@@ -206,7 +246,7 @@ componentは見た目だけでなく、次のbehaviorを定義してから実装
 - hit areaとgesture
 - dataが未取得・取得済み・古い・失敗した状態
 
-現時点では、特定のUI component library、デザイントークン、色値、font family、icon setを正式採用しない。実装時に選定が必要になった場合は、依存追加・保守・両platform対応を含む別の判断として記録する。
+現時点では、特定のUI component library、デザイントークンの体系、具体的な色値、font family、icon setを正式採用しない。ただし、白を基調としLiquid Glassを用いるという方向性はDEC-069で承認済みである（1.1節）。具体的なtokenと色値は後続の技術設計で決める。実装時に選定が必要になった場合は、依存追加・保守・両platform対応を含む別の判断として記録する。
 
 ## 9. Typography and Layout
 
@@ -242,7 +282,7 @@ componentは見た目だけでなく、次のbehaviorを定義してから実装
 | selected | 選択状態が色だけに依存していないか |
 | permission / review | 未申請、審査中、承認、却下、失効を混同させないか |
 
-300ms以内に終わる処理へ不要な全画面spinnerを出さない、再取得時に正常データを不必要に消さない等の具体的な状態契約は、screen-flowとAPI契約を優先する。visual designによって状態の意味を変えない。
+300ms以内に終わる処理へ不要な全画面spinnerを出さない、再取得時に正常データを不必要に消さない等の具体的な状態契約は、screen-flowとAPI契約を優先する。visual designによって状態の意味を変えない。DEC-069で承認した全画面Skeletonも、この状態契約と両立させる（[screen-flow.md](screen-flow.md) 5.1.1）。
 
 ## 11. Motion
 
