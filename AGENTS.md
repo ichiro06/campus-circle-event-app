@@ -77,6 +77,7 @@
 - initial scopeはpersonalized home、detailed circle search、favorite、my page、circle page / management、report / shareである。
 - eventは2026年度内を目標とするが具体時期未定、chatは時期未定であり、initial実装済みと扱わない。
 - S5検索（絞り込み条件・FR-004）に関する作業では、`docs/search-s5-spec.md`とNotionの承認済みDecision（DEC-062・063・066）を確認する。仕様が承認済みであることは実装済みを意味せず、S5全体をCOMPLETE / READY_ALLとしない。仕様書にないAPI parameter名・endpoint・DB migration詳細・UI細部は未承認であり推測で決めない。Notionを読めないagentは同期済みdocsを参照し、新規要件の承認や変更を独断で行わない。
+- モバイルUIの実装・レビュー（画面、component、loading表現、色、visual refinement等）では、`docs/ui-design-guidelines.md`と`docs/screen-flow.md`を必ず確認する。DEC-069（2026-10-18、Human Approved）の「白基調」「Liquid Glass」「全画面Skeletonローディング」を承認済みの方針として扱う。具体的なdesign token、Liquid Glassの対象component・外観、画面別のSkeleton適用、旧iOS・Androidのfallbackは後続の技術設計事項であり、未決事項をAIが独断でHuman Approvedへ変更しない。方針の承認は実装済みを意味しない。Backendのみの変更に不要なUI変更を混ぜない。
 - universityとschool yearは任意・非公開、birth dateは初期収集しない。interestは任意、view historyは説明後に明示的に有効化し、直近20件または90日の早い方までとする。
 - nickname、university、birth dateから完全・一部email addressを返す旧案はDEC-052で廃止した。provider login、存在を明かさないemail reset、確認済みidentityを使うsupportへ置き換える。
 - Chakra UIは現在の依存関係に含まれていない。要件・設計上の決定なしに追加しない。

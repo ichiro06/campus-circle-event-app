@@ -1,6 +1,6 @@
 # 要件定義の進捗
 
-- 最終更新日: 2026-10-18
+- 最終更新日: 2026-10-18（DEC-069のモバイルUI方針を反映）
 - 状態: `W3 Mobile Foundation`は完了。`W4 Public Circle Slice`は公開read範囲の実装・検証が完了（public read slice COMPLETE。FR-001 / FR-005 / FR-017 / FR-018の全体完了ではない）。Personalized Home Contract、Home Production Ready、External Beta / Releaseは未決事項が残りBLOCKED（`docs/coding-readiness.md` 3.1）
 
 ## 1. 情報源
@@ -93,6 +93,19 @@ DEC-067（FR-005の検索結果0件時UXを通常タグによる再検索導線�
 - 0件と通信エラーの分岐（loading → error → empty）は現行mobileで実装済み（D1の前提）。
 - 「人気タグ」という表現は使わない。人気タグの特別機能を提供しないまま元の「人気タグ」要件をCOMPLETEにしない（DEC-066 D3）。
 - FR-005全体、S5全体のCOMPLETE / READY_ALLは宣言しない。
+
+### モバイルUIの方針（DEC-069、2026-10-18）
+
+DEC-069（モバイルUIに全画面スケルトンローディングと白基調Liquid Glassを採用する）: **RESOLVED / HUMAN_APPROVED**。`docs/ui-design-guidelines.md` 1.1、`docs/screen-flow.md` 5.1.1、`docs/decisions.md`へ同期した。意思決定の状態であり、実装完了ではない。
+
+| 項目 | 意思決定 | 実装 | 状態 |
+| --- | --- | --- | --- |
+| 全画面スケルトンローディング | HUMAN_APPROVED（300ミリ秒基準・再取得時のデータ保持など`docs/screen-flow.md` 5.1の状態契約と両立させる） | 未実装（現行は一覧・詳細の一覧型Skeletonのみ） | 詳細は後続のUI設計 |
+| 白基調のLiquid Glass UI | HUMAN_APPROVED（具体的なカラーコード・design tokenは未確定） | 未実装 | 詳細は後続のUI設計 |
+| 適用画面・対象component・fallback・Dark Mode・アクセシビリティ | 未決 | 未実装 | `PENDING_TECHNICAL_DESIGN` |
+
+- `MOBILE_UI_VISUAL_DIRECTION = HUMAN_APPROVED`、`MOBILE_UI_DESIGN_DETAILS = PENDING_TECHNICAL_DESIGN`、`MOBILE_UI_IMPLEMENTATION = NOT_COMPLETE`。
+- S5検索、W4 COMPLETE、認証・認可、画面遷移は変更しない。
 
 ### API・DB
 

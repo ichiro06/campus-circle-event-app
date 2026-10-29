@@ -101,6 +101,28 @@ src/app/
 - 送信・画像upload等は進行中であることと取消可否を示す。
 - screen readerへloading開始・完了を通知する。
 
+#### 5.1.1 全画面Skeletonの採用方針（DEC-069）
+
+Human Decision DEC-069（2026-10-18、Human Approved: YES）により、製品モバイル画面に全画面スケルトンローディングを導入する。色・外観の方針は [ui-design-guidelines.md](ui-design-guidelines.md) 1.1を参照する。本節は、上記5.1の状態契約を変更せず、その上に採用方針を加える。
+
+- 「全画面Skeleton」は、すべての通信で画面全体を強制的に覆う仕様ではない。
+- 300ミリ秒以内に完了する処理では、不要な全画面ローディングを行わない。
+- 初回一覧・詳細などの読み込みでは、実レイアウトに近いSkeletonを使う。
+- 再取得時は前回の正常データを不必要に消去しない。
+- Loading、Empty、Error、Offlineを混同しない。Skeletonは「取得待ち」の表現であり、0件（Empty）、失敗（Error）、オフライン（Offline）を表すために使わない。
+- Skeletonの表示開始・終了をscreen readerへ通知することを前提に設計する。
+- Skeleton表示中にlayout shiftや操作可否の誤認が起きないようにする。
+
+次は後続のUI設計で定める。本節では決めない。
+
+- shimmerの有無と動き。Reduce Motionへの対応
+- Skeletonを表示し始める閾値の詳細（300ミリ秒との関係）
+- 画面別の適用（Home、検索、お気に入り、マイページ、サークル詳細など）
+- 画面遷移中・再検索・部分更新の挙動
+- Skeletonの色・コントラストを含むdesign token
+
+実装状態: 現行mobileのHome・検索一覧・サークル詳細には、300ミリ秒後に表示する一覧型のSkeletonが実装されている。ただし、DEC-069の全画面Skeleton（全画面への適用、上記の後続設計事項）は未実装である。
+
 ### 5.2 Empty
 
 - 単に「データがありません」とせず、0件の理由と次の1操作を示す。

@@ -1,6 +1,6 @@
 # 技術・設計上の決定
 
-最終更新日: 2026-10-18（DEC-068: S5検索の残課題：年間費用上端・無制限予算・非アクティブタグ・行政区粒度を確定）
+最終更新日: 2026-10-18（DEC-069: モバイルUIの全画面スケルトンローディングと白基調Liquid Glassの方針を同期）
 
 この文書は、過去の方針と最新方針を混同しないための決定記録である。旧方針を消さず、何から何へ変更したかを残す。環境構築だけでは判断できない内容は「未確定」とする。
 
@@ -45,6 +45,7 @@
 - Claude Codeのsecurity audit skill: DEC-065
 - S5検索のエリア段階実装・年間費用・通常タグ検索・活動時間帯: DEC-066（共通仕様は`docs/search-s5-spec.md`）
 - FR-005の検索結果0件時UX（通常タグによる再検索導線）: DEC-067（共通仕様は`docs/search-s5-spec.md` 4.5）
+- モバイルUIの全画面スケルトンローディングと白基調Liquid Glass（方針のみ。具体設計・実装は未完了）: DEC-069
 
 DEC-001からDEC-043には、検討経緯を残すため旧方針も記録している。状態が「置換」の決定内容や補足は現在の採用方針ではないため、上記の決定と各正式仕様を優先して読む。
 
@@ -1143,6 +1144,50 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - `tags.is_active`は初回migrationで定義済みだがORMに未マッピングである。Notion・repository文書の一部にあった「列がない」は事実誤記であり、Notion DEC-066・DEC-067とrepository docsで訂正した。実DBへの適用状態は未確認である。
 - `S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`、`S5_IMPLEMENTATION = NOT_COMPLETE`を維持する。製品仕様の承認、Notion記録、docs同期、コード実装完了はそれぞれ別の状態である。FR-004・FR-005、S5全体をCOMPLETE / READY_ALLとしない。共通仕様は`docs/search-s5-spec.md`を参照する。
 
+## DEC-069: モバイルUIに全画面スケルトンローディングと白基調Liquid Glassを採用する
+
+- 日付: 2026-10-18
+- 状態: 採用（Notion意思決定ログ上のステータスは、同DBに「採用」optionがないため既存の完了系option「決定」である。DEC-062〜DEC-068と同じ扱い）
+- 決定内容: Human Decision（2026-10-18、Human Approved: YES）。Notion DEC-069の記載では、承認はユーザー本人が今後の実装要件として明示したものである。次の2要件を承認する。
+  - (1) 全画面スケルトンローディングを導入する
+  - (2) Liquid Glass UIを使用し、色は白をベースとする
+  - iOS・Android共通のホウクルのUI方針として保持する。ネイティブLiquid Glassの利用可否に応じたfallback、適用画面・状態、色token、アクセシビリティ等の詳細は、後続のUI設計で具体化する
+- 決定理由: 今後の製品モバイル画面に求めるローディング表現とビジュアルデザインについて、ユーザーが明示指示した。Notion DEC-069の記載では、実装方法やOS互換方式まで承認したものではない。
+- 旧方針: 白基調・Liquid Glass・全画面Skeletonについて、承認済みの方針はなかった。`docs/ui-design-guidelines.md`は色値・design tokenを未採用としており、`docs/screen-flow.md` 5.1は300ミリ秒を超える初回取得で実レイアウトに近いskeletonを表示すると定めていた。これらの当時の記述は履歴として保持する（下記「既存決定との整合」）。
+- 根拠: Notion DEC-069（意思決定ログ）。本repositoryへの同期は新しいHuman Decisionではない。
+
+### 後続の技術設計事項（本Decisionでは決めない）
+
+Notion DEC-069が「今回のHuman Approvalの範囲外」とした項目である。AIが独断でHuman Approvedへ変更しない。
+
+- 全画面Skeletonの対象（初回画面ロード、遷移中、再検索、部分更新、オフライン時など）と、300ミリ秒閾値、shimmerの有無・Reduce Motion、VoiceOver / TalkBackへの通知
+- 白を基調とするdesign token（背景・表面・テキスト・コントラスト・アクセント・skeleton）
+- Liquid Glassの対象component（tab、navigation、sheet、buttonsなど）と詳細な外観
+- ネイティブLiquid Glassを使えない環境（旧iOS、Android）のfallbackとAndroidの白基調UI・操作部の表現
+- Dark Mode方針と、透過軽減設定（Reduce Transparency等）への対応
+- iOS・Androidの実機・Simulator検証と、UI/UXの独立レビュー
+- 実装開始時の、Notion要件 / 決定とGitHub docsのPRでの同期
+
+### 既存決定との整合
+
+- DEC-051（画面・通信状態）: `docs/screen-flow.md` 5.1の状態契約（300ミリ秒以内は不要な全画面ローディングを行わない、初回一覧・詳細は実レイアウトに近いskeleton、再取得時は正常データを保持、screen readerへの通知）を変更しない。「全画面Skeleton」は、すべての通信で全画面を強制的に覆う仕様ではない。
+- DEC-044（製品形態）、DEC-045（技術構成）、DEC-047（認証連携・認可）、DEC-053（API契約）、DEC-058（非機能目標）: 変更しない。accessibility（WCAG 2.2 AA相当、44pt / 48dp）、対象OS（iOS 16.4以上、Android 10以上）の要件を下げる根拠にしない。
+- `docs/ui-design-guidelines.md`: 「色値・design tokenは未採用」という記述と矛盾しない。白基調という方向性は承認済みだが、具体的なカラーコード・tokenは未確定である。
+- S5検索（DEC-062・063・066〜068）: 変更しない。S5の実装状態（`S5_IMPLEMENTATION = NOT_COMPLETE`）にも影響しない。Notion DEC-069は、進行中のS5 D4 Backend PR-1の実装範囲を変更しないと記載している。
+
+### 実装状態の区分（事実の記録。本Decisionは実装を行わない）
+
+- 承認済み（実装済みを意味しない）: 全画面Skeletonの導入、白基調のLiquid Glass UI
+- 現在のmobile（コード確認）: Home・検索・サークル詳細に、300ミリ秒後に表示する一覧型のSkeleton（`mobile/src/components/circle-list-skeleton.tsx`）がある。`mobile/src/components/theme.ts`に暫定の色・spacing定数がある。`mobile/package.json`には`expo-glass-effect`が含まれる（Expo SDK 57）が、`mobile/src`はまだ使っていない。これらはDEC-069の実装済みではない
+- 未実装: 全画面Skeletonの全画面への適用、白基調のdesign token、Liquid Glassの適用、fallback
+
+### Status
+
+- `MOBILE_UI_VISUAL_DIRECTION = HUMAN_APPROVED`
+- `MOBILE_UI_DESIGN_DETAILS = PENDING_TECHNICAL_DESIGN`
+- `MOBILE_UI_IMPLEMENTATION = NOT_COMPLETE`
+- `S5_D4_BACKEND_SCOPE = UNCHANGED`（Notion DEC-069の記載）
+
 ## 要確認・次workへ引き継ぐ項目
 
 - サービスの正式名称、大学名・公開情報の利用確認
@@ -1161,5 +1206,7 @@ Apple identityもAuthenticationだけを行い、circle manager権限は付与�
 - favoriteCountのAPI response公開（H10）、cursor payloadの機密性（現行codecは署名のみでpayloadはclientから読める。`docs/api-contract.md`参照。DEC-061では決めていない、別Human Decision候補）、most_favoritedのNFR分類
 - 5 ratingの検索利用の将来方式（S5 MVPでは使用しない。DEC-063）、ratingの各段階の意味とUI最終文言、評価項目のmanager edit・API write、実データの投入方法
 - S5検索の残課題: 男女比UIの最終表示文言とDEC-062のbalanced意味記述の整合確認。area / annual cost / tag / timeBandの仕様方針はDEC-066（2026-10-13）で確定済み。年間費用の上端・上限なし予算と欠損値、非アクティブタグ、市区町村の選択粒度はDEC-068（2026-10-18）で確定済み。残る未決は`docs/search-s5-spec.md` 8節を参照（沿線・駅の時期とデータ提供元、地域マスターの取得元・利用条件・更新方式、オンライン併用データの判別 / 移行基準、年間費用の上端の内部表現・DB符号化・カード / response表示、タグ一覧APIのendpoint・response形式・seed、人気タグの再導入時期など）。FR-005の0件時の導線はDEC-067（2026-10-15）で確定済みだが、公開タグ一覧APIとタグ導線は未実装
+
+- モバイルUIの具体設計（DEC-069の後続技術設計事項）: 全画面Skeletonの対象・閾値・shimmer、白基調のdesign token、Liquid Glassの対象componentと外観、旧iOS・Androidのfallback、Dark Mode、透過軽減設定、iOS・Androidの実機 / Simulator検証。方針（白基調・Liquid Glass・全画面Skeleton）は承認済みだが、具体設計と実装は未完了
 
 大学Google Workspace限定OAuthの検証は引き継がない。一般Google OAuthとiOSのSign in with Appleはinitial認証として実装対象である。
