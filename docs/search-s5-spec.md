@@ -1,6 +1,6 @@
 # S5 サークル検索 共通仕様書
 
-- 最終更新日: 2026-10-18
+- 最終更新日: 2026-10-29
 - 対象: FR-004（サークル検索の絞り込み条件）を中心とするS5検索。FR-005の検索結果0件時の導線（DEC-067）と、S5検索の残課題の補完（DEC-068）を含む
 - 位置付け: Notionの意思決定ログに記録されたHuman Decisionを、Git管理上で参照するための同期済み仕様書である。Notionの承認状態を置き換えない。新しい仕様を決める文書ではない。
 
@@ -165,7 +165,7 @@ DEC-066 D3と、FR-005の旧完成条件「0件の場合は条件を減らす案
 - 年間費用のスライダーを、DEC-063の理由で離散chipに変える。
 - タグ一覧のUUIDをモバイルにハードコードする。
 - 非アクティブ化したタグを、既存の公開revisionの表示、既存`tagId`検索、タグ名のキーワード検索からも消す。既存revisionを自動的に書き換える。非アクティブ化をモデレーション目的の公開抑制として使う（DEC-068 H5）。
-- `tags`テーブルに`is_active`列がないと判断して新しい列を追加する（初回migrationで定義済み。ORMに未マッピングなだけである）。
+- `tags`テーブルに`is_active`列がないと判断して新しい列を追加する（初回migrationで定義済み。ORMに未マッピングだっただけで、2026-10-29の公開タグ一覧API実装PRでマッピングした）。
 - タグ検索そのものを削除する。または人気タグ専用UI・ランキング・集計を初期に作る。
 - Circle側のfeatured tagと、運営指定の人気タグを同一視する。
 - `afternoon`などのenum値を追加する。
@@ -204,7 +204,9 @@ DEC-066で未決だった次の項目は、DEC-068（2026-10-18）で決定し�
   - 下限包含（DEC-068のH3）は、既存承認の範囲内で解釈する（Notion DEC-068の記載）。
   - 既存の`circle_revisions.annual_cost_min_yen` / `annual_cost_max_yen`はともにnullableで、初回migration（`20260915_0001`）のCHECK制約は次の3条件である。(1) `annual_cost_min_yen`が非NULLなら0以上、(2) `annual_cost_max_yen`が非NULLなら0以上、(3) 両方が非NULLの場合は`min <= max`。「上限不明」「未回答」「0円」をこの2列でどう表すかは未決である。
   - 既存の費用明細`circle_costs.amount_max_yen`のNULLには別の意味が存在し得る。費用明細のNULL意味論は変更しない。年間summaryの意味との違いは設計課題である。
-- タグ: 公開タグ一覧APIのendpoint名、response形式、seed方法。DEC-068は、既存collection response契約に従う技術設計を推奨しているが、決定ではない。seedの衝突、down migration、安全性は実装PRで検証する。`is_active`をORM・公開タグ一覧APIでどう扱うかの実装詳細は実装PRで決める。モデレーション目的の公開抑制の仕様（別仕様）。人気タグの再導入時期と方式。
+- タグ: 公開タグ一覧APIのendpoint名、response形式、seed方法は、2026-10-29の実装PRで既存collection response契約に従う技術設計として実装した（`GET /api/v1/tags`、`docs/api-contract.md` 4.3。seedは`docs/data-dictionary.md` 3.4）。これはDEC-068が推奨した技術設計の具体化であり、Human Decisionではない。人間のreview・merge承認までは設計案として扱う。
+  - [過去] 「endpoint名、response形式、seed方法は未決」は実装PR前の記述である。
+  - 現在の未決: モデレーション目的の公開抑制の仕様（別仕様）。人気タグの再導入時期と方式。seed slugは実装側の技術的な選択で、承認済み語彙ではない。
 - 活動時間帯: 実装時の詳細は既存API契約に沿って実装PRで定める。特殊時間帯（DEC-068のH10）は、既存承認の範囲内で解釈する（Notion DEC-068の記載）。
 - その他: FR-005の「0件のときの人気タグへの導線」とD3の関係は、DEC-067（2026-10-15）で解消した（4.5）。DEC-067後に残る未決は次のとおり。
   - 「検索条件を見直す」の具体的な実装方式。直前条件へ戻す操作のUIと復元可能期間。
@@ -214,15 +216,15 @@ DEC-066で未決だった次の項目は、DEC-068（2026-10-18）で決定し�
 
 ## 9. 現在の実装状態（2026-10-18更新、事実の記録）
 
-[過去] DEC-068同期（PR #42）時点の本書の更新はdocs-onlyであり、backend、mobile、DB migration、OpenAPI生成物は変更していなかった。2026-10-18のD4実装PRでは、backendの活動時間帯filter（下表「活動時間帯」）だけを変更した。mobile、DB migration、OpenAPI生成物は変更していない。
+[過去] DEC-068同期（PR #42）時点の本書の更新はdocs-onlyであり、backend、mobile、DB migration、OpenAPI生成物は変更していなかった。2026-10-18のD4実装PRでは、backendの活動時間帯filter（下表「活動時間帯」）だけを変更した。mobile、DB migration、OpenAPI生成物は変更していない。2026-10-29の公開タグ一覧API実装PR（S5 PR-2）では、backendの`Tag.is_active`のORMマッピング、`GET /api/v1/tags`、明示実行の初期tag seed、OpenAPI snapshotとmobile生成型を変更した。DB migrationは追加しておらず、mobileの画面は変更していない。
 
 | 領域 | 状態 |
 | --- | --- |
 | エリア（都道府県・市区町村の構造化filter） | 未実装。`q`が都道府県・市区町村・施設名・最寄駅をliteral substringで検索するだけ。`activity_locations`の`prefecture` / `city`は自由記述の文字列で、地域コードの列はない（DEC-068 H7のデータ設計は未着手） |
 | 年間費用filter | 未実装（`annual_cost_*`列はあるがfilterなし） |
-| 公開タグ一覧API | 未実装。`tagId` filterは実装済み |
-| `tags.is_active` | 初回migration（revision `20260915_0001`）で`categories`・`tags`の両方に`is_active`（BOOLEAN、NOT NULL、server default true）を定義済み。backendのORM（`backend/app_private/models.py`の`Tag`）には未マッピングで、API・mobileは参照していない。実DBへの適用状態は未確認。以前の「active / inactiveを表す列がない」という記述は事実誤記であり、Notion DEC-066・DEC-067とあわせて訂正した |
-| タグの既存表示・検索（DEC-068 H5の維持対象） | `tagId` filter、`q`によるタグ名（`Tag.name`）の部分一致検索、Circleのタグ表示は実装済みで、いずれも`is_active`を参照していない |
+| 公開タグ一覧API | backendに実装済み（2026-10-29のS5 PR-2。`GET /api/v1/tags`）。認証不要、activeなtagだけを`display_order, id`順にcursor paginationで返し、itemは`id` / `name` / `slug`。技術設計は`docs/api-contract.md` 4.3。mobileのタグ選択UI・0件時のタグ導線は未実装。`tagId` filterは実装済み。[過去] PR-2前は未実装 |
+| `tags.is_active` | 初回migration（revision `20260915_0001`）で`categories`・`tags`の両方に`is_active`（BOOLEAN、NOT NULL、server default true）を定義済み。backendのORM（`backend/app_private/models.py`の`Tag`）には2026-10-29のS5 PR-2でマッピングした（新しいmigrationなし）。参照するのは公開タグ一覧APIだけで、mobileは参照していない。実DBへの適用状態は未確認。初期7タグは明示実行のseed（`python -m app_private.seed_tags`）で投入する設計で、どの環境にも投入済みとは扱わない。以前の「active / inactiveを表す列がない」という記述は事実誤記であり、Notion DEC-066・DEC-067とあわせて訂正した。[過去] ORM未マッピングはPR-2前の状態 |
+| タグの既存表示・検索（DEC-068 H5の維持対象） | `tagId` filter、`q`によるタグ名（`Tag.name`）の部分一致検索、Circleのタグ表示（`tags` / `featuredTags`）は実装済みで、いずれも`is_active`を参照しない。PR-2のPostgreSQL統合テストで、非アクティブtagが一覧から除外される一方、これら3つの既存挙動と非公開draft revisionの非公開性が維持されることを確認した |
 | 活動時間帯 | backendに実装済み（2026-10-18のD4実装PR）。`weekday`と`timeBand`は公開revisionの同一activity scheduleレコードに対する1つの存在判定で評価する。通常4時間帯の指定は`all_day`にも一致し、`all_day` / `irregular`の単独指定はその値だけに一致する。両filter未指定時はschedule条件を加えない。API parameter・enum・response・cursor仕様は変更なし。mobileの曜日・時間帯UIは未実装。[過去] D4実装PR前は、`weekday`と`timeBand`をそれぞれ独立した存在判定で評価し、`all_day`を各時間帯へ展開していなかった |
 | mobile | S5の上記filter UIは未実装 |
 | 0件時の導線（DEC-067） | 条件ありの0件で「条件に合うサークルが見つかりません」と、キーワードと現行の全filterを解除する「検索条件を解除」を表示する（実装済み）。0件と通信エラーの分岐（loading → error → empty）も実装済み。この現行画面は公開タグ一覧API未実装の期間の暫定利用であり、D2〜D5を満たすものではない。未実装: 「検索条件を見直す」の独立した操作、名称「検索条件をすべて解除」への変更、「タグから探し直す」導線と説明文、公開タグ一覧API、mobileの検索画面（`SearchScreen`）での`tagId`の設定・送信とタグ選択UI（API query型・`CircleListFilters`は既存の`tagId` filterに対応済み）、タグ一覧API不可時の分岐、直前条件へ戻す操作 |
@@ -233,5 +235,6 @@ DEC-066で未決だった次の項目は、DEC-068（2026-10-18）で決定し�
 - `S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`（維持）
 - `S5_IMPLEMENTATION = NOT_COMPLETE`
 - S5全体のCOMPLETE / READY_ALLは宣言しない。エリア検索は沿線・駅の実装までPARTIAL、人気タグ要件は通常タグ検索への置換として扱う。
-- DEC-068: 意思決定は`HUMAN_APPROVED`。Notion記録とrepository docs同期は意思決定の記録であり、H1・H2・H5・H7は未実装である。
+- DEC-068: 意思決定は`HUMAN_APPROVED`。Notion記録とrepository docs同期は意思決定の記録であり、H1・H2・H7は未実装である。H5はbackendの公開タグ一覧API（`is_active`の扱い）として2026-10-29に実装したが、mobileのタグ選択UIは未実装で、S5全体の完了ではない。
+- `S5_TAG_API_IMPLEMENTATION`: backend実装はPR-2で提出済み（review・merge承認前）。`S5_MOBILE_TAG_UI = NOT_COMPLETE`。
 - FR-005の0件時の導線: 意思決定は`HUMAN_APPROVED`（DEC-067）、実装は未完了。公開タグ一覧APIとタグ導線の実装までPARTIALで、FR-005全体のCOMPLETEも宣言しない。

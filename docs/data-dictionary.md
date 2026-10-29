@@ -52,7 +52,14 @@
 
 `name`、`slug`、`display_order`、`is_active`を持つ運営管理master。managerは既存tagを選び、新規語は申請して運営確認後に追加する。自由入力文字列をそのまま公開tagにしない。
 
-`is_active`は初回migration（revision `20260915_0001`）でBOOLEAN、NOT NULL、server default trueとして定義済みである。backendのORM（`backend/app_private/models.py`の`Tag`）には未マッピングで、API・mobileは参照していない。実DBへの適用状態は未確認である。
+`is_active`は初回migration（revision `20260915_0001`）でBOOLEAN、NOT NULL、server default trueとして定義済みである。backendのORM（`backend/app_private/models.py`の`Tag`）には2026-10-29のS5 PR-2でマッピングした（新しいmigrationは不要）。公開タグ一覧API（`GET /api/v1/tags`、`docs/api-contract.md` 4.3）だけが参照し、公開Circleの詳細・featuredTags、`tagId` filter、`q`のタグ名検索は参照しない。mobileは参照していない。実DBへの適用状態は未確認である。なお`categories.is_active`と`campuses.is_active`は引き続きORM未マッピングである。
+
+初期7タグのseed（技術設計。Human Decisionではない）: 初心者歓迎、留学生歓迎、兼サーOK、途中入部歓迎、友達作り、少人数、大会ありを`display_order` 1〜7で投入する。UUIDは`campus-circle-initial-tag-<slug>`のUUIDv5（URL namespace）を一度だけ生成して固定値としており、slug（`beginner-friendly`、`international-students-welcome`、`multiple-circles-ok`、`mid-year-joining-welcome`、`make-friends`、`small-group`、`tournaments`）は実装側の技術的な選択で、承認済み語彙ではない。seedは`backend/app_private/seed_tags.py`（prototypeの`backend/seed.py`とは別）で、Alembic migrationにもアプリ起動にも組み込まない。
+
+- 既定はdry runで、`python -m app_private.seed_tags --apply`のときだけ書き込む。対象DBは実行前に表示する。実行者が`DATABASE_URL`を指定した環境にだけ書き込み、開発・staging・本番のどれにも自動では実行されない。
+- 欠けているtagだけを挿入する。ID・name・slugが完全に一致する既存行は何も変更しない（`is_active`、`display_order`も変更せず、非アクティブ化したtagを再有効化しない）。
+- 初期tagとID・name・slugのいずれかが重なるが完全一致でない行がある場合は、何も書き込まずに中止し、終了コード1を返す。実行中は`tags`に`SHARE ROW EXCLUSIVE` lockを取り、同時実行を直列化する。
+- migrationにしない理由: 参照データの投入を`alembic upgrade head`の副作用にしない。既存テストfixtureが同名のtag（`初心者歓迎`）を直接INSERTしており、migrationで投入するとCIの全環境で`uq_tags_name`に衝突する。migrationにしないため、downgradeがtagや`circle_revision_tags`を削除することもない（初回revisionのdowngradeは従来どおりtable全体を削除する）。
 
 非アクティブ化の意味（DEC-068 H5、2026-10-18）: 非アクティブのtagは、新規のタグ選択肢（公開タグ一覧API）に表示しない。既存の公開revisionに紐付いたtagの表示、既存の`tagId` filterによる検索、キーワードによるtag名検索は維持し、既存revisionを自動的に書き換えない。不適切なtagを公衆から非表示にするモデレーション操作は、非アクティブ化とは別仕様である。
 
@@ -159,7 +166,7 @@ accountをphysical deleteした場合、`favorites.user_id`の`ON DELETE CASCADE
 
 `revision_id`と`tag_id`の複合PK。cardに出す`is_featured`と`display_order`を持ち、featuredは最大5件とする。
 
-`is_featured`はCircle側のfeatured tag（サークルが自分のページで強調するタグ）であり、運営が全体の人気タグとして指定する機能とは別概念である。タグマスター`tags`は`display_order`と`is_active`を持つ（3.4。`is_active`はORM未マッピング）。公開タグ一覧API（有効なタグを`display_order`順に提示し、非アクティブなタグは表示しない。DEC-066 D3）では、DEC-068 H5により、非アクティブのtagを新規選択肢から除外するだけとし、既存revisionに紐付いたtagの表示と検索は維持する。（事実訂正: 以前の記述「active / inactiveを表す列は現在ない」は誤記だった）
+`is_featured`はCircle側のfeatured tag（サークルが自分のページで強調するタグ）であり、運営が全体の人気タグとして指定する機能とは別概念である。タグマスター`tags`は`display_order`と`is_active`を持つ（3.4。`is_active`は2026-10-29にORMへマッピング済み）。公開タグ一覧API（有効なタグを`display_order`順に提示し、非アクティブなタグは表示しない。DEC-066 D3）では、DEC-068 H5により、非アクティブのtagを新規選択肢から除外するだけとし、既存revisionに紐付いたtagの表示と検索は維持する。（事実訂正: 以前の記述「active / inactiveを表す列は現在ない」は誤記だった）
 
 ### 5.5 `activity_schedules`
 

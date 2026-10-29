@@ -64,7 +64,7 @@ Build / submission: EAS Build / EAS Submit
 Distribution: App Store / Google Play
 ```
 
-現在のExpo画面はFastAPI未接続である。FastAPIには`/api/v1`共通基盤と、`app_private`を読む公開Circle一覧・詳細がある。認証・認可・書込みendpoint、他の正式product resource、正式seed、mobile接続は未実装である。正式schemaはGit上のmigrationとして確定し、公開Circle readに必要なORMだけを接続済みであるため、最小read sliceと製品機能完成を混同しない。
+現在のExpo画面はFastAPI未接続である。FastAPIには`/api/v1`共通基盤と、`app_private`を読む公開Circle一覧・詳細と公開タグ一覧がある。認証・認可・書込みendpoint、他の正式product resource、初期タグ以外の正式seed、mobile接続は未実装である。正式schemaはGit上のmigrationとして確定し、公開Circle readに必要なORMだけを接続済みであるため、最小read sliceと製品機能完成を混同しない。
 
 ## 前提
 
@@ -490,7 +490,7 @@ npx expo-doctor@latest
 
 - Expo画面からFastAPIへのversioned JSON通信（OpenAPI生成型、transport、公開Circle typed facadeまでは実装済み）
 - FastAPIのSupabase Auth JWT検証、circle単位認可、正式`/api/v1` write APIと公開Circle以外のproduct resource
-- 公開Circle以外の正式SQLAlchemy mapping / repository、正式seed
+- 公開Circleと公開タグ一覧以外の正式SQLAlchemy mapping / repository、初期タグ以外の正式seed
 - Supabase clientと必要なdependencyの導入
 - Supabase development / staging / production projectの作成
 - Supabase Auth、PostgreSQL、Storage、policyの接続
@@ -514,6 +514,7 @@ Next.js technical verificationについて未実施・非対象のもの:
 - `backend/compose.yaml` は既存の `postgres_campus-postgres-data` volumeを再利用する。過去に別のCompose projectが作成したvolumeがある端末では、所有project名の警告が表示されるが、2026-07-25の起動とデータ接続は成功した。
 - PostgreSQLのprototype tableだけはFastAPI起動時の`Base.metadata.create_all()`で作る。正式業務tableは`app_private`のAlembic revisionで管理し、prototypeへ正式機能を追加しない。
 - seedデータは対象テーブルが空の場合だけ追加され、Docker volumeに永続化される。
+- 正式`app_private.tags`の初期7タグは、prototype seedとは別に明示実行する。`backend/`で`.venv/bin/python -m app_private.seed_tags`はdry runとして計画だけを表示し、`--apply`を付けたときだけ欠けているタグを追加する（既存行・非アクティブ状態は変更せず、ID・name・slugが部分的に重なる場合は何も書き込まずに中止する）。`alembic upgrade head`やアプリ起動では実行されない。実行後は`curl http://localhost:8000/api/v1/tags`で確認できる。2026-10-29時点で、開発・staging・本番のどのDBでも実行済みとは確認していない。
 - DockerとCIは生成済みlockを使用する。入力用requirementsとlockの更新漏れをPull Requestで確認する。
 - `mobile/` のruntime dependency監査は2026-09-24時点で18件（moderate 14件、high 4件）で、2026-09-14の既知debtから増えていない。全dependencyでは20件（moderate 15件、high 5件）となり、追加1件のHighは`openapi-typescript`のdev-only推移依存`undici`である。生成時だけの開発経路として追跡し、`npm audit fix --force`はExpo互換性を壊すため適用しない。Dependabot、generator更新可否、Expo SDK patchを追跡し、release前に再監査する。
 - Expo Doctorは2026-09-24時点で、`@expo/ui`、`expo`、`expo-constants`、`expo-router`のSDK 57 patch推奨versionとの差だけを報告する。4 packageの宣言versionはWork 3開始時の`main`と同じであり、generator・build-properties追加による不整合ではない。別workで公式互換patchへ更新して両Simulatorを再確認する。
