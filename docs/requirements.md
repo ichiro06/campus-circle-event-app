@@ -105,9 +105,9 @@ favorite集計のeligible条件は、favoriteの所有者が現在activeなア�
   - 0件表示は、通信に成功して該当するサークルがない場合に限る。通信失敗・未取得・権限不足は0件として表示しない。検索条件なし・公開サークル0件の画面は新しく定めず、既存仕様を維持する。
   - 0件画面に「検索条件を見直す」「検索条件をすべて解除」を設ける。「検索条件を見直す」の実装方式は実装PRで決める。
   - 見出し「タグから探し直す」で通常タグ（下記7語彙）を提示し、選択前に「選択すると現在の条件を解除し、そのタグだけで検索します」と説明する。選択時はキーワードとすべての絞り込み条件を解除して選択タグだけで再検索し、並び順は維持する。ほかの条件やキーワードが残るとAND条件で0件が解消しない可能性があるためである。導線から選べるのは1回の操作につき1つのタグで、追加選択は通常のタグfilterで行う。「人気タグ」という表現は使わず、人気タグの特別扱いは行わない（DEC-066 D3は変更しない）。
-  - 公開タグ一覧APIが利用できない場合や取得に失敗した場合は、タグ導線のみ表示せず、見直し・解除は使えるようにする。API未実装の期間は現行の0件画面を暫定的に利用するが、タグ導線を実装完了扱いにしない。
+  - 公開タグ一覧APIが利用できない場合や取得に失敗した場合は、タグ導線のみ表示せず、見直し・解除は使えるようにする。API未実装の期間は現行の0件画面を暫定的に利用するが、タグ導線を実装完了扱いにしない。（実装事実の注記、2026-10-30。上記の承認済み条件を変更・延長するものではない: 公開タグ一覧APIはbackendに実装済みでmainにmerge済み。mobileのタグ一覧API接続・タグ選択UI・タグ導線は未実装で、現行mobileには旧0件画面（条件解除のみ）が残っている。D2〜D5は未達でFR-005はPARTIAL。旧画面が存在することは実装事実であり、暫定利用が現在も許可されていることを意味しない。）
   - タグによる置換後は、直前の検索条件（キーワード、各filter、並び順）へ戻す操作を提供する。アプリ内の一時状態で管理し、サーバー保存や新しい個人情報の収集は行わない。復元可能期間とUIは実装時に提案する。
-  - 現行mobileは条件解除（「検索条件を解除」）のみ実装済みで、「検索条件を見直す」の独立した操作、タグ導線、公開タグ一覧API、直前条件へ戻す操作は未実装である。0件時の完成条件はこれらの実装までPARTIAL（`docs/search-s5-spec.md` 4.5）。
+  - 現行mobileは条件解除（「検索条件を解除」）のみ実装済みで、「検索条件を見直す」の独立した操作、タグ導線、mobileの公開タグ一覧API接続、直前条件へ戻す操作は未実装である（公開タグ一覧APIのbackendは実装済み）。0件時の完成条件はこれらの実装までPARTIAL（`docs/search-s5-spec.md` 4.5）。
 
 #### キーワード・直接入力
 
@@ -150,7 +150,7 @@ DEC-066・DEC-067の既存承認は変更せず、未決部分だけを補完す
 - 上限なし予算と欠損値（H2）: 費用filterを指定し予算上限なしの場合、下限既知・上限不明のサークルは、既知下限が利用者の予算下限以上なら一致する。未回答は不一致。有限上限では上限不明は不一致。費用filter無指定なら、未回答・上限不明を費用条件だけで除外しない。
 - タグの非アクティブ化（H5）: 非アクティブ化は新規選択肢から除外する意味とする。既存の公開revisionのタグ表示、既存`tagId`検索、タグ名キーワード検索は維持する。モデレーション目的の公開抑制は別仕様である。
 - 市区町村の選択粒度（H7）: 初期検索では、政令指定都市は市単位（行政区単位では検索させない）、東京都23特別区は各区単位とする。後続の行政区検索に備え、元の区情報・コードを失わないデータ設計とする。沿線・駅は後続段階である。
-- FR-004・FR-005、S5全体をCOMPLETEにしない。上端の内部表現・API parameter形式、DB符号化、年間費用のカード・response表示、地域マスターの取得元、オンライン併用データの判別、タグ一覧APIのendpoint・response形式・seedは未決である。
+- FR-004・FR-005、S5全体をCOMPLETEにしない。上端の内部表現・API parameter形式、DB符号化、年間費用のカード・response表示、地域マスターの取得元、オンライン併用データの判別は未決である。（実装事実の注記、2026-10-30: タグ一覧APIのendpoint・response形式・seedは、2026-10-29の実装PR #46で技術設計として実装され、2026-10-30にmainへmerge済み。Human Decisionではない。mobileのタグ選択UI・環境別のseed適用は未完了・未確認で、S5全体はCOMPLETEではない。）
 
 #### 雰囲気・特徴
 
@@ -537,7 +537,7 @@ iOS版では一般Googleログインを提供し、大学発行アカウント�
 10. Apple Developer、Google Play、Google Cloud、Supabase、Render、EASのowner、region、月額上限、支払責任者
 11. bundle identifier、Android package name、Universal Links / App Linksのdomain
 12. ratingの各段階の意味とUI最終文言、5 ratingの将来の検索利用方式（S5 MVPでは使用しない。DEC-063）、男女比filterの最終表示文言と割合閾値、評価項目のmanager editとAPI write、実データの投入方法（DEC-062・DEC-063で未決として残る）
-13. S5検索の残課題: area / annual cost / tag / timeBandの仕様方針はDEC-066（2026-10-13）で確定済み。年間費用の上端超過値・上限不明 / 未回答と無制限予算の一致条件、非アクティブタグと既存revisionの関係、市区町村の選択粒度はDEC-068（2026-10-18）で確定済み。残る未決は`docs/search-s5-spec.md` 8節を参照（沿線・駅の時期とデータ提供元、地域マスターの取得元、オンライン併用データの判別、年間費用の上端の内部表現・NULLのDB符号化・カード / response表示、公開タグ一覧APIのendpoint・response形式・seed、人気タグの再導入時期）。FR-005の0件時の導線はDEC-067（2026-10-15）で確定済みだが、公開タグ一覧APIとタグ導線は未実装
+13. S5検索の残課題: area / annual cost / tag / timeBandの仕様方針はDEC-066（2026-10-13）で確定済み。年間費用の上端超過値・上限不明 / 未回答と無制限予算の一致条件、非アクティブタグと既存revisionの関係、市区町村の選択粒度はDEC-068（2026-10-18）で確定済み。残る未決は`docs/search-s5-spec.md` 8節を参照（沿線・駅の時期とデータ提供元、地域マスターの取得元、オンライン併用データの判別、年間費用の上端の内部表現・NULLのDB符号化・カード / response表示、人気タグの再導入時期）。FR-005の0件時の導線はDEC-067（2026-10-15）で確定済みだが、公開タグ一覧APIはbackendのみ実装済み（PR #46、2026-10-30にmainへmerge済み。endpoint・response形式・seedは技術設計として採用済み）で、mobileのタグ導線は未実装
 
 画面状態、data dictionary、API契約、初回DB schema、profile保持、推薦rule、管理者確認、account recovery、非機能目標は2026-09-15に決定済みである。上記の外部所有・費用・将来機能は推測で設定しない。
 
@@ -545,6 +545,6 @@ iOS版では一般Googleログインを提供し、大学発行アカウント�
 
 `mobile/`のExpo projectは正式な製品clientだが、現在は静的な初期画面までである。FastAPI接続、Supabase Auth、Googleログイン、メール登録、パーソナライズ、正式検索、マイページ、サークル編集、確認、違反報告は未実装である。
 
-`backend/`のFastAPIとDocker Compose PostgreSQL 16は正式なAPI・開発DBの基盤として再採用した。既存health、circle list、event listのread技術検証と分離して、`/api/v1`の共通response、Problem Details、request ID、OpenAPI contract check、および`app_private`を読む公開Circle一覧・詳細を実装済みである。認証・書込み・公開Circle以外の正式resourceは未実装で、本番Supabase、Render、EAS、App Store、Google Playも未構築である。
+`backend/`のFastAPIとDocker Compose PostgreSQL 16は正式なAPI・開発DBの基盤として再採用した。既存health、circle list、event listのread技術検証と分離して、`/api/v1`の共通response、Problem Details、request ID、OpenAPI contract check、および`app_private`を読む公開Circle一覧・詳細と公開タグ一覧（`GET /api/v1/tags`。2026-10-30にmainへmerge済み）を実装済みである。認証・書込み・公開Circleと公開タグ一覧以外の正式resourceは未実装で、本番Supabase、Render、EAS、App Store、Google Playも未構築である。
 
 ルートNext.jsはFastAPIのread APIを表示する技術検証であり、初期製品の実装経路ではない。製品機能を追加しない。
