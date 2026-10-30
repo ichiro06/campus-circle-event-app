@@ -131,7 +131,7 @@ Work 2の正式な公開read endpointは次の2つである。データ源はPos
 
 > **S5検索の承認済み意味論と現行契約の差（DEC-066、2026-10-13。契約の変更ではなく差分の記録）**
 >
-> - 上記のfilter集合と「異なるfilter間はAND」は現行契約として変更しない。年間費用、都道府県・市区町村は、承認済みの検索意味論（`docs/search-s5-spec.md`）はあるが、parameter名・endpoint・response形式は未承認であり、この契約にまだ含まれない。公開タグ一覧は4.3の技術設計（`GET /api/v1/tags`）で追加したが、endpoint名・response形式はHuman Decisionで固定されたものではなく、人間のreview・merge承認までは技術設計案である。Circle一覧のfilter集合には影響しない。
+> - 上記のfilter集合と「異なるfilter間はAND」は現行契約として変更しない。年間費用、都道府県・市区町村は、承認済みの検索意味論（`docs/search-s5-spec.md`）はあるが、parameter名・endpoint・response形式は未承認であり、この契約にまだ含まれない。公開タグ一覧は4.3の技術設計（`GET /api/v1/tags`）で追加した。endpoint名・response形式はHuman Decisionで固定されたものではないが、PR #46として2026-10-30に人間の明示承認でmainへmerge済みであり、採用済みの技術設計である（[過去] merge前は技術設計案だった）。Circle一覧のfilter集合には影響しない。
 > - `weekday`と`timeBand`が同時に指定された場合、DEC-066 D4は同一のactivity scheduleレコードでの一致を要求する。`timeBand`は`all_day`が午前・昼・夕方・夜（`morning`、`daytime`、`evening`、`night`）の各指定に一致し、`irregular`は通常の4つの指定に一致しない。
 > - [過去] 2026-10-18のD4実装PRまで、backendは`weekday`と`timeBand`を独立した存在判定で評価しており、この意味論を満たしていなかった。
 
@@ -163,7 +163,7 @@ cursorはversion、sort、最後の`publishedAt`とCircle ID（`most_favorited`�
 
 ### 4.3 公開タグ一覧（`GET /api/v1/tags`）
 
-S5の通常タグ検索（DEC-066 D3）で、モバイルがUUIDをハードコードせずに選択肢を得るための公開read endpointである。endpoint名・response形式・pagination方式はHuman Decisionで固定されておらず、この契約の技術設計（実装PR）である。データ源は`app_private.tags`だけで、認証を要求しない。
+S5の通常タグ検索（DEC-066 D3）で、モバイルがUUIDをハードコードせずに選択肢を得るための公開read endpointである。endpoint名・response形式・pagination方式はHuman Decisionで固定されておらず、この契約の技術設計である（PR #46で実装し、2026-10-30にmainへmerge済み）。データ源は`app_private.tags`だけで、認証を要求しない。
 
 - 対象: `tags.is_active = true`のtagだけ。`is_active = false`は新規の選択肢から外すことだけを意味する（DEC-068 H5、R1）。非アクティブtagは、公開Circleの`tags` / `featuredTags`、`tagId` filter、`q`によるtag名検索では従来どおり扱い、既存revisionは書き換えない。一覧にだけ作用し、Circle側のqueryは`is_active`を参照しない。
 - 順序: `display_order ASC, id ASC`（`id`は同順位時のタイブレーク）。

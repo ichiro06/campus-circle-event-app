@@ -3,6 +3,7 @@
 最終環境監査日: 2026-09-15
 API共通基盤確認日: 2026-09-18
 公開Circle Read確認日: 2026-09-19
+公開タグ一覧API（PR #46）mainへのmerge日: 2026-10-30
 正式方針反映日: 2026-09-14
 
 この文書は、現在のリポジトリと開発端末を照合したmacOS向けセットアップ手順である。バージョンは監査端末で確認した値であり、プロジェクトがすべてを厳密に固定しているわけではない。
@@ -34,8 +35,8 @@ API共通基盤確認日: 2026-09-18
 | Python | `uv`とuv管理のPython 3.13.14を導入 | 使用可能。ただし `python3` はmacOS標準の3.9.6を指す |
 | コンテナ | Docker DesktopとDocker Composeを導入 | 製品APIとローカルPostgreSQLの開発で使用可能 |
 | Web technical verification | Next.js、React、TypeScript、Tailwind CSSの依存関係を導入 | FastAPIのread API接続確認用。製品経路ではない |
-| 製品API基盤 | FastAPI、Uvicorn、SQLAlchemy、psycopgをDockerイメージへ導入 | 起動、PostgreSQL接続、prototype読み取りAPI、`/api/v1`共通基盤、公開Circle一覧・詳細、OpenAPIを確認済み。認証・書込みと他の正式resourceは未実装 |
-| ローカル製品DB | PostgreSQL 16をDocker Composeで構築 | prototype seedと正式`app_private`初回Alembic revisionを確認済み。公開Circle readに必要な正式ORM・repositoryを接続済み |
+| 製品API基盤 | FastAPI、Uvicorn、SQLAlchemy、psycopgをDockerイメージへ導入 | 起動、PostgreSQL接続、prototype読み取りAPI、`/api/v1`共通基盤、公開Circle一覧・詳細、OpenAPIを確認済み。公開タグ一覧（`GET /api/v1/tags`）は2026-10-29にPostgreSQL 16で確認し、PR #46として2026-10-30にmainへmerge済み。認証・書込みと他の正式resourceは未実装 |
+| ローカル製品DB | PostgreSQL 16をDocker Composeで構築 | prototype seedと正式`app_private`初回Alembic revisionを確認済み。公開Circle readに必要な正式ORM・repositoryと、公開タグ一覧に必要な`Tag` ORMを接続済み。初期7タグのseedは明示実行で、どの環境にも適用済みとは確認していない |
 | 製品モバイル基盤 | React Native、Expo、Expo Routerを `mobile/` に導入 | 初期画面、Lint、型検査、Jest test、Expo Doctorを確認済み。API・認証・製品機能は未実装 |
 | 自動検査 | GitHub Actions、Jest、React Native Testing Libraryを導入 | localとPull Requestで確認する4 jobを定義済み。各PRのlatest HEADを確認する |
 | iOS確認環境 | XcodeとiOS Simulatorを導入 | iOS 26.3 Simulatorランタイムを確認済み |
@@ -514,11 +515,11 @@ Next.js technical verificationについて未実施・非対象のもの:
 - `backend/compose.yaml` は既存の `postgres_campus-postgres-data` volumeを再利用する。過去に別のCompose projectが作成したvolumeがある端末では、所有project名の警告が表示されるが、2026-07-25の起動とデータ接続は成功した。
 - PostgreSQLのprototype tableだけはFastAPI起動時の`Base.metadata.create_all()`で作る。正式業務tableは`app_private`のAlembic revisionで管理し、prototypeへ正式機能を追加しない。
 - seedデータは対象テーブルが空の場合だけ追加され、Docker volumeに永続化される。
-- 正式`app_private.tags`の初期7タグは、prototype seedとは別に明示実行する。`backend/`で`.venv/bin/python -m app_private.seed_tags`はdry runとして計画だけを表示し、`--apply`を付けたときだけ欠けているタグを追加する（既存行・非アクティブ状態は変更せず、ID・name・slugが部分的に重なる場合は何も書き込まずに中止する）。`alembic upgrade head`やアプリ起動では実行されない。実行後は`curl http://localhost:8000/api/v1/tags`で確認できる。2026-10-29時点で、開発・staging・本番のどのDBでも実行済みとは確認していない。
+- 正式`app_private.tags`の初期7タグは、prototype seedとは別に明示実行する。`backend/`で`.venv/bin/python -m app_private.seed_tags`はdry runとして計画だけを表示し、`--apply`を付けたときだけ欠けているタグを追加する（既存行・非アクティブ状態は変更せず、ID・name・slugが部分的に重なる場合は何も書き込まずに中止する）。`alembic upgrade head`やアプリ起動では実行されない。実行後は`curl http://localhost:8000/api/v1/tags`で確認できる。2026-10-30時点でも、開発・staging・本番のどのDBでも実行済みとは確認していない（seed CLI自体はPR #46でmainにmerge済み）。
 - DockerとCIは生成済みlockを使用する。入力用requirementsとlockの更新漏れをPull Requestで確認する。
 - `mobile/` のruntime dependency監査は2026-09-24時点で18件（moderate 14件、high 4件）で、2026-09-14の既知debtから増えていない。全dependencyでは20件（moderate 15件、high 5件）となり、追加1件のHighは`openapi-typescript`のdev-only推移依存`undici`である。生成時だけの開発経路として追跡し、`npm audit fix --force`はExpo互換性を壊すため適用しない。Dependabot、generator更新可否、Expo SDK patchを追跡し、release前に再監査する。
 - Expo Doctorは2026-09-24時点で、`@expo/ui`、`expo`、`expo-constants`、`expo-router`のSDK 57 patch推奨versionとの差だけを報告する。4 packageの宣言versionはWork 3開始時の`main`と同じであり、generator・build-properties追加による不整合ではない。別workで公式互換patchへ更新して両Simulatorを再確認する。
 - `~/.zprofile` には `brew shellenv` が重複して記載されている。動作への影響は確認されていないが、将来整理できる。
 - Android Emulatorは通常のサンドボックス内コマンドではCPU機能エラーになる場合がある。macOS上で通常起動すると動作する。
-- mobile製品clientにはOpenAPI生成型と共通transport、公開Circle typed facadeがあるが、画面からのAPI呼出しは未接続である。unversioned circle / event read APIはtechnical verificationとして残し、正式な公開Circle readだけを`/api/v1`と`app_private`へ実装済みである。今後のproduct resourceも`/api/v1`へ追加する。
+- mobile製品clientにはOpenAPI生成型と共通transport、公開Circle typed facadeがあるが、画面からのAPI呼出しは未接続である。unversioned circle / event read APIはtechnical verificationとして残し、正式な公開Circle readと公開タグ一覧（`GET /api/v1/tags`）だけを`/api/v1`と`app_private`へ実装済みである。[過去] 2026-10-29以前は公開Circle readのみだった。今後のproduct resourceも`/api/v1`へ追加する。
 - Docker Desktop、Simulator、Expo開発サーバーはメモリを使用するため、不要なものは停止する。
