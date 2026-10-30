@@ -1,7 +1,17 @@
 from datetime import datetime, time
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, String, Text, Time
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    Time,
+    true,
+)
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -57,6 +67,9 @@ class Tag(ProductBase):
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     slug: Mapped[str] = mapped_column(String(80), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Defined by migration 20260915_0001. False only removes the tag from new selection
+    # lists (DEC-068 H5); existing revision tags and searches must not read it.
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=true())
 
 
 class Circle(ProductBase):

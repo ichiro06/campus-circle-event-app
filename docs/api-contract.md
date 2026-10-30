@@ -2,7 +2,7 @@
 
 - 状態: 正式仕様
 - 決定日: 2026-09-15
-- 最終更新日: 2026-10-04
+- 最終更新日: 2026-10-29
 - 対象: Expo製品clientとFastAPI製品API
 
 ## 1. 基本契約
@@ -131,7 +131,7 @@ Work 2の正式な公開read endpointは次の2つである。データ源はPos
 
 > **S5検索の承認済み意味論と現行契約の差（DEC-066、2026-10-13。契約の変更ではなく差分の記録）**
 >
-> - 上記のfilter集合と「異なるfilter間はAND」は現行契約として変更しない。年間費用、都道府県・市区町村、公開タグ一覧は、承認済みの検索意味論（`docs/search-s5-spec.md`）はあるが、parameter名・endpoint・response形式は未承認であり、この契約にまだ含まれない。
+> - 上記のfilter集合と「異なるfilter間はAND」は現行契約として変更しない。年間費用、都道府県・市区町村は、承認済みの検索意味論（`docs/search-s5-spec.md`）はあるが、parameter名・endpoint・response形式は未承認であり、この契約にまだ含まれない。公開タグ一覧は4.3の技術設計（`GET /api/v1/tags`）で追加したが、endpoint名・response形式はHuman Decisionで固定されたものではなく、人間のreview・merge承認までは技術設計案である。Circle一覧のfilter集合には影響しない。
 > - `weekday`と`timeBand`が同時に指定された場合、DEC-066 D4は同一のactivity scheduleレコードでの一致を要求する。`timeBand`は`all_day`が午前・昼・夕方・夜（`morning`、`daytime`、`evening`、`night`）の各指定に一致し、`irregular`は通常の4つの指定に一致しない。
 > - [過去] 2026-10-18のD4実装PRまで、backendは`weekday`と`timeBand`を独立した存在判定で評価しており、この意味論を満たしていなかった。
 
@@ -160,6 +160,18 @@ cursorはversion、sort、最後の`publishedAt`とCircle ID（`most_favorited`�
 - 未決: `favoriteCount`をAPI response fieldとして公開するか（H10）は決めていない。cursorが`favoriteCount`を内部のsort keyに含むことは、response fieldとしての公開を意味しない。OpenAPIの具体的な変更、most_favoritedのNFR分類、cache / preaggregationのfreshnessも未決である。
 - 不正signal除外: 初回のmost_favorited capabilityではfraud / abnormal favorite detectionを実装しない。具体仕様は別Human Decisionで確定し、Home推薦のproduction-ready扱い前またはexternal beta / production release開始前の早い方より前に実装する（release gate、状態: OPEN。DEC-061 D2）。
 - cursor payloadの機密性（現行codecの事実）: 現行の`SignedCircleCursorCodec`（`backend/circles/cursor.py`）はpayloadをcanonical JSONのbase64urlとしHMAC-SHA-256署名するだけで、暗号化しない。署名は改ざんを検出するが、payloadの内容はclientがbase64url decodeして読める。4の「clientは内容を解釈しない」はcontract上の取り決めであり、機密性を保証しない。`favoriteCount`をcursorへ含める場合の扱いは、H10との関係を含め別Human Decision候補であり、本contractでは暗号化・server-side cursor化を決めていない。
+
+### 4.3 公開タグ一覧（`GET /api/v1/tags`）
+
+S5の通常タグ検索（DEC-066 D3）で、モバイルがUUIDをハードコードせずに選択肢を得るための公開read endpointである。endpoint名・response形式・pagination方式はHuman Decisionで固定されておらず、この契約の技術設計（実装PR）である。データ源は`app_private.tags`だけで、認証を要求しない。
+
+- 対象: `tags.is_active = true`のtagだけ。`is_active = false`は新規の選択肢から外すことだけを意味する（DEC-068 H5、R1）。非アクティブtagは、公開Circleの`tags` / `featuredTags`、`tagId` filter、`q`によるtag名検索では従来どおり扱い、既存revisionは書き換えない。一覧にだけ作用し、Circle側のqueryは`is_active`を参照しない。
+- 順序: `display_order ASC, id ASC`（`id`は同順位時のタイブレーク）。
+- Query: `cursor`と`limit`（既定20、最大50）だけ。filter parameterはなく、未知のparameterは`422 VALIDATION_ERROR`とする。tagの数が`limit`を超える場合は`hasMore`と`nextCursor`で続きを取得する。
+- Response: 2章のcollection envelope。itemは`id`（UUID）、`name`、`slug`だけで、`displayOrder`、`isActive`、timestamp、件数は返さない。`page`は`hasMore`と`limit`（最終pageでは`nextCursor`なし）で、Circle一覧だけが持つ`totalCount`は返さない。0件でも`200`で`data`は空配列とする。
+- Cursor: 署名付き・24時間・不透明という4章の契約に従う。payloadは`version`、`resource`（`tags`）、最後の`display_order`とtag ID、発行・失効時刻で、Circle一覧のcursorとは相互に受理しない。署名secretは既存の`CURSOR_SIGNING_SECRET`で、cursorを読み書きするときだけ必要とする（1pageに収まる先頭page取得はsecretなしでも動く）。不正・期限切れ・別resourceのcursorは`400 INVALID_CURSOR`とする。keyset条件は`(display_order, id)`のlive keysetで、page取得の間にtagが追加・非アクティブ化されても、cursor位置より後ろの現在のactive tagを返す（snapshotは保証しない）。
+- Error: `400 INVALID_CURSOR`、`422 VALIDATION_ERROR`、`500`、`503`をRFC 9457 Problem Detailsで返す。
+- 初期7語彙（初心者歓迎、留学生歓迎、兼サーOK、途中入部歓迎、友達作り、少人数、大会あり）は、migrationではなく明示実行のseed（`python -m app_private.seed_tags`、`docs/data-dictionary.md` 3.4）で投入する。人気タグ、ranking、件数表示、managerのタグ管理、moderationはこのendpointに含まれない。
 
 ## 5. Idempotency
 
@@ -203,6 +215,7 @@ keyはclientが論理操作ごとに生成するUUIDで、同じ操作の再送�
 | Resource | 主な操作 |
 | --- | --- |
 | circles | 公開一覧・詳細、manager向け担当一覧 |
+| tags | 公開タグ一覧（4.3） |
 | recommendations | user別ホーム一覧と説明用signal |
 | favorites | 一覧、登録、解除 |
 | profiles / interests / views | 本人のprofile・興味・履歴管理 |

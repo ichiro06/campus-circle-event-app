@@ -26,6 +26,7 @@ def test_runtime_openapi_preserves_prototype_paths_and_adds_api_v1() -> None:
         "/api/v1/health",
         "/api/v1/circles",
         "/api/v1/circles/{circleId}",
+        "/api/v1/tags",
     } <= paths.keys()
 
 
@@ -37,6 +38,7 @@ def test_contract_openapi_contains_only_the_formal_api_surface() -> None:
         "/api/v1/health",
         "/api/v1/circles",
         "/api/v1/circles/{circleId}",
+        "/api/v1/tags",
     }
     health_operation = paths["/api/v1/health"]["get"]
     assert health_operation["operationId"] == "getApiV1Health"
@@ -130,3 +132,30 @@ def test_most_favorited_is_a_sort_value_and_exposes_no_favorite_count_field() ->
     # H10 (publishing favoriteCount as a response field) is undecided.
     assert "favoriteCount" not in json.dumps(schema)
     assert "favorite_count" not in json.dumps(schema)
+
+
+def test_public_tag_catalog_contract() -> None:
+    schema = build_contract_schema()
+    operation = schema["paths"]["/api/v1/tags"]["get"]
+    schemas = schema["components"]["schemas"]
+
+    assert operation["operationId"] == "listPublicTags"
+    assert "security" not in operation
+    assert [parameter["name"] for parameter in operation["parameters"]] == ["cursor", "limit"]
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/TagCollectionResponse"
+    }
+    for status in ("400", "422", "500", "503"):
+        assert set(operation["responses"][status]["content"]) == {PROBLEM_MEDIA_TYPE}
+    assert operation["responses"]["400"]["content"][PROBLEM_MEDIA_TYPE]["example"]["code"] == (
+        "INVALID_CURSOR"
+    )
+
+    assert set(schemas["TagCatalogItem"]["properties"]) == {"id", "name", "slug"}
+    assert schemas["TagCatalogItem"]["required"] == ["id", "name", "slug"]
+    # The shared page metadata has no totalCount; that field is specific to the Circle list.
+    assert schemas["TagCollectionResponse"]["properties"]["page"] == {
+        "$ref": "#/components/schemas/PageMetadata"
+    }
+    assert "totalCount" not in schemas["PageMetadata"]["properties"]
+    assert "isActive" not in json.dumps(schemas["TagCatalogItem"])

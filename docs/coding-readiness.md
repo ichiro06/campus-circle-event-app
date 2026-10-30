@@ -103,7 +103,7 @@ DEC-068（2026-10-18、Human Approved）は、DEC-066で未決だった年間費
 | --- | --- |
 | 年間費用の欠損表現 | 検索上の意味はDEC-068 H2で決定済み。`circle_revisions.annual_cost_min_yen` / `annual_cost_max_yen`はともにnullableで、「上限不明」「未回答」「0円」の具体的なDB符号化・CHECK・migrationは未決（技術設計 / PRレビュー）。`circle_costs.amount_max_yen`のNULL意味論は変更しない |
 | 年間費用の上端 | 上端「20,000円以上」は予算上限なし（DEC-068 H1で決定済み）。内部表現・API parameter形式、入力・表示、カード・response表示（H4、後続に保留）は未決 |
-| タグ一覧API | endpoint名、response形式、seed方法は未決（DEC-068は既存collection response契約に従う技術設計を推奨。決定ではない）。`tags.is_active`は初回migrationで定義済みだがORM未マッピングで、実DBへの適用は未確認。非アクティブタグと既存revisionの関係はDEC-068 H5で決定済み。seedの衝突、down migration、安全性は実装PRで検証する |
+| タグ一覧API | backendに実装済み（2026-10-29のS5 PR-2、review・merge承認前）。`GET /api/v1/tags`、cursor pagination、明示実行のseed（migrationではない）はDEC-068が推奨した技術設計の具体化であり、Human Decisionではない（`docs/api-contract.md` 4.3、`docs/data-dictionary.md` 3.4）。`tags.is_active`は初回migrationで定義済みでORMへマッピングした（新しいmigrationなし）。実DBへの適用とseed実行は未確認。非アクティブタグと既存revisionの関係はDEC-068 H5で決定済みで、統合テストで維持を確認した。残り: mobileのタグ選択UI、0件時のタグ導線、人気タグ・moderation（別仕様）。[過去] 「endpoint名、response形式、seed方法は未決」はPR-2前の記述 |
 | エリアAPI・DB | filterのAPI parameter名、endpoint、構造化の方法（現在は自由記述の都道府県・市区町村・最寄駅で、地域コードの列はない）。選択粒度はDEC-068 H7で決定済み。地域マスターの取得元・利用条件・更新方式（H6）、オンライン併用データの判別・移行基準（H9）は技術設計・PRレビューで具体化する |
 | 沿線・駅 | 開発日、リリース日、鉄道マスターの提供元、ライセンス、費用（未決） |
 | 契約変更 | 上記の追加は`/api/v1`のAPI契約・OpenAPI・mobile生成型の更新を伴う。Authentication / Authorization、DB migration、API契約変更はCopilotに単独で任せない（`docs/development-workflow.md` 14章） |

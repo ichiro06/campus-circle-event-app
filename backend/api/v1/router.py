@@ -14,11 +14,14 @@ from circles.schemas import (
 )
 from circles.service import CircleReadService, build_circle_read_service
 from database import get_db
+from tags.schemas import TagCollectionResponse, TagListQuery
+from tags.service import TagCatalogService
 
 router = APIRouter(prefix="/api/v1", tags=["API v1"])
 
 DatabaseSession = Annotated[Session, Depends(get_db)]
 CircleQuery = Annotated[CircleListQuery, Query()]
+TagQuery = Annotated[TagListQuery, Query()]
 
 
 def get_circle_read_service(db: DatabaseSession) -> CircleReadService:
@@ -101,5 +104,46 @@ def get_public_circle(
 ) -> SuccessResponse[CircleDetail]:
     return SuccessResponse(
         data=service.get_public(circle_id),
+        meta=RequestMetadata(request_id=get_request_id(request)),
+    )
+
+
+@router.get(
+    "/tags",
+    operation_id="listPublicTags",
+    response_model=TagCollectionResponse,
+    responses={
+        400: openapi_problem_response(
+            "Invalid pagination cursor",
+            example={
+                "type": "about:blank",
+                "title": "Bad Request",
+                "status": 400,
+                "detail": "The pagination cursor is invalid.",
+                "instance": "/api/v1/tags",
+                "code": "INVALID_CURSOR",
+                "requestId": "00000000-0000-0000-0000-000000000000",
+            },
+        ),
+        422: openapi_problem_response("Request validation failed"),
+        500: openapi_problem_response("Unexpected server error"),
+        503: openapi_problem_response("Service temporarily unavailable"),
+    },
+    summary="List selectable public tags",
+    description=(
+        "Returns the active tags that may be offered as new selection choices, in display "
+        "order with ID as the tie-breaker. Inactive tags are omitted from this list only; they stay "
+        "visible on existing public Circles and keep matching the `tagId` and `q` Circle searches."
+    ),
+)
+def list_public_tags(
+    request: Request,
+    query: TagQuery,
+    db: DatabaseSession,
+) -> TagCollectionResponse:
+    result = TagCatalogService(db).list_public(query)
+    return TagCollectionResponse(
+        data=result.data,
+        page=result.page,
         meta=RequestMetadata(request_id=get_request_id(request)),
     )

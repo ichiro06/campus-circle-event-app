@@ -57,7 +57,7 @@ DEC-066（S5検索のエリア段階実装・年間費用・通常タグ検索�
 | --- | --- | --- | --- |
 | HD-1 エリア（D1） | RESOLVED / HUMAN_APPROVED（都道府県・市区町村を先行、沿線・駅は後続。選択粒度はDEC-068 H7） | 未実装 | 沿線・駅の実装まで元のMust要件に対して**PARTIAL** |
 | HD-2 年間費用（D2） | RESOLVED / HUMAN_APPROVED（自己申告の入会初年度の標準的な年間費用、containment、範囲スライダー。上端と欠損値はDEC-068 H1・H2） | 未実装 | 未完了。上端の内部表現・NULLのDB符号化・カード / response表示は設計課題 |
-| HD-3 タグ（D3） | RESOLVED / HUMAN_APPROVED（通常タグ検索7語彙、人気タグの特別扱いは初期除外。非アクティブ化の意味はDEC-068 H5） | `tagId` filterのみ。公開タグ一覧APIは未実装 | 人気タグの特別機能を提供しないまま元の「人気タグ」要件をCOMPLETEにしない |
+| HD-3 タグ（D3） | RESOLVED / HUMAN_APPROVED（通常タグ検索7語彙、人気タグの特別扱いは初期除外。非アクティブ化の意味はDEC-068 H5） | `tagId` filter、およびbackendの公開タグ一覧API（`GET /api/v1/tags`。2026-10-29のS5 PR-2、review・merge承認前）。mobileのタグ選択UIは未実装 | 人気タグの特別機能を提供しないまま元の「人気タグ」要件をCOMPLETEにしない |
 | HD-4 活動時間帯（D4） | RESOLVED / HUMAN_APPROVED（`all_day` / `irregular`の意味論、曜日×時間帯は同一activity schedule） | backendの公開Circle一覧filterへ実装（2026-10-18のD4実装PR。同一activity schedule行での単一存在判定、通常4時間帯指定で`all_day`も一致）。mobileの曜日・時間帯UIは未実装。[過去] D4実装PR前は曜日と時間帯を独立判定し、`all_day`は展開なし | backend sliceのみ実装。S5全体は未完了 |
 
 - 沿線・駅は削除した要件ではなく、実装を後続段階へ移した要件である。後続の開発日、リリース日、鉄道マスターの提供元、ライセンス、費用は未決。
@@ -72,7 +72,7 @@ DEC-068（S5検索の残課題：年間費用上端・無制限予算・非ア�
 | --- | --- | --- | --- |
 | H1 年間費用の上端 | RESOLVED / HUMAN_APPROVED（「20,000円以上」は予算上限なし。実額を切り捨てない） | 未実装 | 未完了。内部表現・API parameter形式は技術設計 / 実装PR |
 | H2 上限なし予算と欠損値 | RESOLVED / HUMAN_APPROVED（上限なしでは下限既知・上限不明を条件付きで一致。未回答は不一致。filter無指定では除外しない） | 未実装 | 未完了。DB符号化・CHECK・migrationは技術設計 / PRレビュー |
-| H5 タグの非アクティブ化 | RESOLVED / HUMAN_APPROVED（R1。新規選択肢から除外し、既存表示・`tagId`検索・タグ名キーワード検索は維持） | 公開タグ一覧APIは未実装。`tags.is_active`は初回migrationで定義済みだがORM未マッピング。実DBへの適用は未確認 | 未完了 |
+| H5 タグの非アクティブ化 | RESOLVED / HUMAN_APPROVED（R1。新規選択肢から除外し、既存表示・`tagId`検索・タグ名キーワード検索は維持） | backendの公開タグ一覧APIで実装（2026-10-29のS5 PR-2。非アクティブtagは一覧だけから除外し、既存の公開Circle表示・`tagId`検索・タグ名の`q`検索は統合テストで維持を確認）。`tags.is_active`は初回migrationで定義済みでORMへマッピング済み。実DBへの適用は未確認 | backend sliceのみ。mobileのタグ選択UIは未実装で未完了 |
 | H7 市区町村の選択粒度 | RESOLVED / HUMAN_APPROVED（政令指定都市は市単位、東京都23特別区は区単位。行政区情報を失わない） | 未実装（`city`は自由記述で地域コードの列なし） | 沿線・駅の実装までエリア検索はPARTIAL |
 
 - 未決: H4（年間費用のカード・response表示）は後続に保留。H6（地域マスターの取得元・利用条件・更新方式）とH9（オンライン併用データの判別 / 移行基準）は技術設計・PRレビューで具体化する。H3・H8・H10は既存承認の範囲内で解釈する。
@@ -86,7 +86,7 @@ DEC-067（FR-005の検索結果0件時UXを通常タグによる再検索導線�
 | 項目 | 意思決定 | 実装 | 要件の完了状態 |
 | --- | --- | --- | --- |
 | 条件の見直し・すべての解除（D2） | RESOLVED / HUMAN_APPROVED | 条件解除は実装済み（ラベルは「検索条件を解除」）。「検索条件を見直す」の独立した操作は未実装 | 未完了。「検索条件を見直す」の実装方式は実装PRで決める |
-| 「タグから探し直す」導線（D3） | RESOLVED / HUMAN_APPROVED（選択時に条件を解除してそのタグだけで再検索、並び順は維持） | 未実装。公開タグ一覧APIは未実装。mobileのAPI query型・`CircleListFilters`は既存の`tagId` filterに対応しているが、検索画面（`SearchScreen`）は`tagId`の設定・送信とタグ選択UIを実装していない | 公開タグ一覧APIとタグ導線の実装までPARTIAL |
+| 「タグから探し直す」導線（D3） | RESOLVED / HUMAN_APPROVED（選択時に条件を解除してそのタグだけで再検索、並び順は維持） | 未実装。公開タグ一覧APIはbackendに実装済み（PR-2、review・merge承認前）で、mobileは未接続。mobileのAPI query型・`CircleListFilters`は既存の`tagId` filterに対応しているが、検索画面（`SearchScreen`）は`tagId`の設定・送信とタグ選択UIを実装していない | 公開タグ一覧APIとタグ導線の実装までPARTIAL |
 | タグ一覧API不可時の分岐（D4） | RESOLVED / HUMAN_APPROVED | 未実装。現行の0件画面を暫定的に利用する（D2〜D5の実装済みを意味しない） | 未完了 |
 | 直前の検索条件へ戻す操作（D5） | RESOLVED / HUMAN_APPROVED（アプリ内の一時状態。サーバー保存なし） | 未実装 | 未完了。復元可能期間とUIは実装時に提案 |
 

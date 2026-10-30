@@ -17,6 +17,13 @@ export interface paths {
     /** Check the formal API foundation */
     get: operations["getApiV1Health"];
   };
+  "/api/v1/tags": {
+    /**
+     * List selectable public tags
+     * @description Returns the active tags that may be offered as new selection choices, in display order with ID as the tie-breaker. Inactive tags are omitted from this list only; they stay visible on existing public Circles and keep matching the `tagId` and `q` Circle searches.
+     */
+    get: operations["listPublicTags"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -233,6 +240,15 @@ export interface components {
      * @enum {string}
      */
     OfficialStatus: "official" | "unofficial" | "unknown";
+    /** PageMetadata */
+    PageMetadata: {
+      /** Hasmore */
+      hasMore: boolean;
+      /** Limit */
+      limit: number;
+      /** Nextcursor */
+      nextCursor?: string | null;
+    };
     /**
      * RecruitingStatus
      * @enum {string}
@@ -260,6 +276,25 @@ export interface components {
     SuccessResponse_CircleDetail_: {
       data: components["schemas"]["CircleDetail"];
       meta: components["schemas"]["RequestMetadata"];
+    };
+    /** TagCatalogItem */
+    TagCatalogItem: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Name */
+      name: string;
+      /** Slug */
+      slug: string;
+    };
+    /** TagCollectionResponse */
+    TagCollectionResponse: {
+      /** Data */
+      data: components["schemas"]["TagCatalogItem"][];
+      meta: components["schemas"]["RequestMetadata"];
+      page: components["schemas"]["PageMetadata"];
     };
     /** TagRead */
     TagRead: {
@@ -637,6 +672,162 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["SuccessResponse_ApiHealth_"];
+        };
+      };
+      /** @description Unexpected server error */
+      500: {
+        content: {
+          "application/problem+json": {
+            /** Code */
+            code: string;
+            /** Detail */
+            detail: string;
+            /** Errors */
+            errors?: {
+                /** Code */
+                code: string;
+                /** Field */
+                field: string;
+              }[] | null;
+            /** Instance */
+            instance: string;
+            /**
+             * Requestid
+             * Format: uuid
+             */
+            requestId: string;
+            /** Status */
+            status: number;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @default about:blank
+             */
+            type?: string;
+          };
+        };
+      };
+      /** @description Service temporarily unavailable */
+      503: {
+        content: {
+          "application/problem+json": {
+            /** Code */
+            code: string;
+            /** Detail */
+            detail: string;
+            /** Errors */
+            errors?: {
+                /** Code */
+                code: string;
+                /** Field */
+                field: string;
+              }[] | null;
+            /** Instance */
+            instance: string;
+            /**
+             * Requestid
+             * Format: uuid
+             */
+            requestId: string;
+            /** Status */
+            status: number;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @default about:blank
+             */
+            type?: string;
+          };
+        };
+      };
+    };
+  };
+  /**
+   * List selectable public tags
+   * @description Returns the active tags that may be offered as new selection choices, in display order with ID as the tie-breaker. Inactive tags are omitted from this list only; they stay visible on existing public Circles and keep matching the `tagId` and `q` Circle searches.
+   */
+  listPublicTags: {
+    parameters: {
+      query?: {
+        cursor?: string | null;
+        limit?: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["TagCollectionResponse"];
+        };
+      };
+      /** @description Invalid pagination cursor */
+      400: {
+        content: {
+          "application/problem+json": {
+            /** Code */
+            code: string;
+            /** Detail */
+            detail: string;
+            /** Errors */
+            errors?: {
+                /** Code */
+                code: string;
+                /** Field */
+                field: string;
+              }[] | null;
+            /** Instance */
+            instance: string;
+            /**
+             * Requestid
+             * Format: uuid
+             */
+            requestId: string;
+            /** Status */
+            status: number;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @default about:blank
+             */
+            type?: string;
+          };
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        content: {
+          "application/problem+json": {
+            /** Code */
+            code: string;
+            /** Detail */
+            detail: string;
+            /** Errors */
+            errors?: {
+                /** Code */
+                code: string;
+                /** Field */
+                field: string;
+              }[] | null;
+            /** Instance */
+            instance: string;
+            /**
+             * Requestid
+             * Format: uuid
+             */
+            requestId: string;
+            /** Status */
+            status: number;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @default about:blank
+             */
+            type?: string;
+          };
         };
       };
       /** @description Unexpected server error */
