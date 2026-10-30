@@ -13,13 +13,20 @@ import { ChoiceChip } from "@/components/choice-chip";
 import { EmptyState } from "@/components/common-states";
 import { colors, MIN_TAP_TARGET, spacing } from "@/components/theme";
 import { CIRCLE_TYPE_LABELS, OFFICIAL_STATUS_LABELS } from "@/circles/labels";
+import {
+  mergeTagChoices,
+  selectedTagIds,
+  toggleTag,
+} from "@/circles/tag-selection";
 import type {
   CircleListFilters,
   CircleSort,
   CircleType,
   OfficialStatus,
+  PublicTag,
 } from "@/circles/types";
 import { usePaginatedCircles } from "@/circles/use-paginated-circles";
+import { usePublicTags } from "@/circles/use-public-tags";
 
 export const SEARCH_DEBOUNCE_MS = 500;
 
@@ -61,6 +68,13 @@ export default function SearchScreen() {
   const [sort, setSort] = useState<CircleSort>("newest");
   const [officialStatuses, setOfficialStatuses] = useState<OfficialStatus[]>([]);
   const [circleTypes, setCircleTypes] = useState<CircleType[]>([]);
+  // Whole tags rather than IDs: a selected tag that later leaves the catalog keeps its label.
+  const [selectedTags, setSelectedTags] = useState<PublicTag[]>([]);
+  const publicTags = usePublicTags();
+  const tagChoices = useMemo(
+    () => mergeTagChoices(publicTags.tags, selectedTags),
+    [publicTags.tags, selectedTags],
+  );
 
   // A whitespace-only keyword normalizes to "", i.e. the query that is already active, so it
   // neither adds a q parameter nor triggers a request.
@@ -92,23 +106,44 @@ export default function SearchScreen() {
       next.circleType = inOrder(CIRCLE_TYPE_OPTIONS, circleTypes);
     }
 
+    const tagIds = selectedTagIds(tagChoices, selectedTags);
+
+    if (tagIds.length > 0) {
+      next.tagId = tagIds;
+    }
+
     return next;
-  }, [circleTypes, keyword, officialStatuses, sort]);
+  }, [circleTypes, keyword, officialStatuses, selectedTags, sort, tagChoices]);
 
   const circles = usePaginatedCircles(filters);
   const hasConditions =
-    keyword !== "" || officialStatuses.length > 0 || circleTypes.length > 0;
+    keyword !== "" ||
+    officialStatuses.length > 0 ||
+    circleTypes.length > 0 ||
+    selectedTags.length > 0;
+
+  const { refresh: refreshTags } = publicTags;
+  const { refresh: refreshCircles } = circles;
+  // Pulling to refresh also reloads the tag choices. A failure there never reaches the list.
+  const listWithTagRefresh = {
+    ...circles,
+    refresh: () => {
+      refreshCircles();
+      refreshTags();
+    },
+  };
 
   const clearConditions = useCallback(() => {
     setDraftKeyword("");
     setKeyword("");
     setOfficialStatuses([]);
     setCircleTypes([]);
+    setSelectedTags([]);
   }, []);
 
   return (
     <CircleListView
-      circles={circles}
+      circles={listWithTagRefresh}
       emptyState={
         hasConditions ? (
           <EmptyState
@@ -200,6 +235,42 @@ export default function SearchScreen() {
             ))}
           </View>
 
+          {tagChoices.length > 0 ? (
+            <>
+              <Text style={styles.groupLabel}>タグ</Text>
+              <Text style={styles.hint}>
+                選んだタグのいずれかに該当するサークルを表示します（複数選択可）
+              </Text>
+              <View style={styles.chips}>
+                {tagChoices.map((tag) => (
+                  <ChoiceChip
+                    key={tag.id}
+                    label={tag.name}
+                    onPress={() =>
+                      setSelectedTags((current) => toggleTag(current, tag))
+                    }
+                    role="checkbox"
+                    selected={selectedTags.some((current) => current.id === tag.id)}
+                  />
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {publicTags.status === "error" && publicTags.tags.length === 0 ? (
+            <View style={styles.tagError}>
+              <Text style={styles.hint}>タグを読み込めませんでした</Text>
+              <Pressable
+                accessibilityLabel="タグの読み込みを再試行"
+                accessibilityRole="button"
+                onPress={publicTags.refresh}
+                style={styles.clear}
+              >
+                <Text style={styles.clearLabel}>再試行</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
           {circles.totalCount !== null ? (
             <Text accessibilityLiveRegion="polite" style={styles.count}>
               該当 {circles.totalCount} 件
@@ -254,6 +325,16 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
     fontWeight: "700",
+    marginTop: spacing.sm,
+  },
+  hint: {
+    color: colors.textMuted,
+    fontSize: 13,
+  },
+  tagError: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
     marginTop: spacing.sm,
   },
   chips: {

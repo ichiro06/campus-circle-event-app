@@ -1,7 +1,14 @@
-import type { GetCircleResponse, ListCirclesQuery, ListCirclesResponse } from "@/api";
+import type {
+  GetCircleResponse,
+  ListCirclesQuery,
+  ListCirclesResponse,
+  ListTagsResponse,
+} from "@/api";
 
 export type CircleListItem = ListCirclesResponse["data"][number];
 export type CircleDetail = GetCircleResponse["data"];
+/** A selectable tag from the public tag catalog (GET /api/v1/tags). */
+export type PublicTag = ListTagsResponse["data"][number];
 
 export type CircleSort = NonNullable<ListCirclesQuery["sort"]>;
 export type OfficialStatus = CircleListItem["officialStatus"];

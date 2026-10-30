@@ -11,6 +11,13 @@ export type ListCirclesResponse =
 export type GetCircleResponse =
   operations["getPublicCircle"]["responses"][200]["content"]["application/json"];
 
+export type ListTagsQuery = NonNullable<
+  operations["listPublicTags"]["parameters"]["query"]
+>;
+
+export type ListTagsResponse =
+  operations["listPublicTags"]["responses"][200]["content"]["application/json"];
+
 export interface CircleRequestOptions {
   signal?: AbortSignal;
 }
@@ -24,6 +31,11 @@ export interface CirclesApi {
     query?: ListCirclesQuery,
     options?: CircleRequestOptions,
   ): Promise<ListCirclesResponse>;
+  /** Public tag catalog (docs/api-contract.md 4.3): active tags only, in API order. */
+  listTags(
+    query?: ListTagsQuery,
+    options?: CircleRequestOptions,
+  ): Promise<ListTagsResponse>;
 }
 
 export function createCirclesApi(
@@ -42,6 +54,15 @@ export function createCirclesApi(
       return transport.request<ListCirclesResponse>({
         method: "GET",
         path: "/api/v1/circles",
+        query,
+        signal: options.signal,
+      });
+    },
+
+    listTags(query = {}, options = {}) {
+      return transport.request<ListTagsResponse>({
+        method: "GET",
+        path: "/api/v1/tags",
         query,
         signal: options.signal,
       });
