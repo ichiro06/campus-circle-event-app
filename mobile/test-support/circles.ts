@@ -3,8 +3,13 @@ import {
   type CirclesApi,
   type GetCircleResponse,
   type ListCirclesResponse,
+  type ListTagsResponse,
 } from "../src/api";
-import type { CircleDetail, CircleListItem } from "../src/circles/types";
+import type {
+  CircleDetail,
+  CircleListItem,
+  PublicTag,
+} from "../src/circles/types";
 
 export const REQUEST_ID = "00000000-0000-0000-0000-0000000000aa";
 
@@ -115,6 +120,37 @@ export function makeListResponse({
   } as ListCirclesResponse;
 }
 
+export function tagId(index: number): string {
+  return `20000000-0000-0000-0000-${String(index).padStart(12, "0")}`;
+}
+
+export function makeTag(index: number, overrides: Partial<PublicTag> = {}): PublicTag {
+  return {
+    id: tagId(index),
+    name: `テストタグ${index}`,
+    slug: `test-tag-${index}`,
+    ...overrides,
+  };
+}
+
+export interface TagPage {
+  items: PublicTag[];
+  nextCursor?: string;
+}
+
+/** The tag collection carries no totalCount (docs/api-contract.md 4.3). */
+export function makeTagResponse({ items, nextCursor }: TagPage): ListTagsResponse {
+  return {
+    data: items,
+    page: {
+      hasMore: nextCursor !== undefined,
+      limit: 50,
+      nextCursor: nextCursor ?? null,
+    },
+    meta: { requestId: REQUEST_ID },
+  } as ListTagsResponse;
+}
+
 export function makeDetailResponse(circle: CircleDetail): GetCircleResponse {
   return { data: circle, meta: { requestId: REQUEST_ID } } as GetCircleResponse;
 }
@@ -148,9 +184,17 @@ export function createMockApi(): {
   api: CirclesApi;
   getCircle: jest.Mock;
   listCircles: jest.Mock;
+  listTags: jest.Mock;
 } {
   const getCircle = jest.fn();
   const listCircles = jest.fn();
+  // Without a stub the catalog is simply empty, so screens that never use tags need no setup.
+  const listTags = jest.fn().mockResolvedValue(makeTagResponse({ items: [] }));
 
-  return { api: { getCircle, listCircles }, getCircle, listCircles };
+  return {
+    api: { getCircle, listCircles, listTags },
+    getCircle,
+    listCircles,
+    listTags,
+  };
 }
