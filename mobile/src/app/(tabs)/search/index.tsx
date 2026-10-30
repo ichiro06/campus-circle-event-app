@@ -106,14 +106,14 @@ export default function SearchScreen() {
       next.circleType = inOrder(CIRCLE_TYPE_OPTIONS, circleTypes);
     }
 
-    const tagIds = selectedTagIds(tagChoices, selectedTags);
+    const tagIds = selectedTagIds(selectedTags);
 
     if (tagIds.length > 0) {
       next.tagId = tagIds;
     }
 
     return next;
-  }, [circleTypes, keyword, officialStatuses, selectedTags, sort, tagChoices]);
+  }, [circleTypes, keyword, officialStatuses, selectedTags, sort]);
 
   const circles = usePaginatedCircles(filters);
   const hasConditions =

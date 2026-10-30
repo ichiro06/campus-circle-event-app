@@ -1,5 +1,9 @@
 import type { ListTagsResponse } from "../src/api";
-import { TAG_PAGE_LIMIT, TagCatalogStore } from "../src/circles/tag-catalog-store";
+import {
+  MAX_TAG_CATALOG_PAGES,
+  TAG_PAGE_LIMIT,
+  TagCatalogStore,
+} from "../src/circles/tag-catalog-store";
 import {
   createMockApi,
   makeTag,
@@ -109,30 +113,205 @@ describe("TagCatalogStore", () => {
     expect(store.getSnapshot()).toMatchObject({ hasLoaded: true, status: "ready", tags: [] });
   });
 
-  it("stops following a cursor that was already sent, or a missing one", async () => {
+  it("finishes normally on hasMore=false and does not follow a leftover cursor", async () => {
     const { api, listTags } = createMockApi();
-    listTags
-      .mockResolvedValueOnce(makeTagResponse({ items: [makeTag(1)], nextCursor: "same" }))
-      .mockResolvedValue(makeTagResponse({ items: [makeTag(2)], nextCursor: "same" }));
+    listTags.mockResolvedValue({
+      ...makeTagResponse({ items: [makeTag(1)] }),
+      page: { hasMore: false, limit: TAG_PAGE_LIMIT, nextCursor: OPAQUE_CURSOR },
+    });
     const store = new TagCatalogStore(api);
 
     store.start();
     await flush();
 
-    expect(listTags).toHaveBeenCalledTimes(2);
-    expect(names(store)).toEqual(["テストタグ1", "テストタグ2"]);
+    expect(listTags).toHaveBeenCalledTimes(1);
+    expect(store.getSnapshot()).toMatchObject({ hasLoaded: true, status: "ready" });
+    expect(names(store)).toEqual(["テストタグ1"]);
+  });
 
-    const missing = createMockApi();
-    missing.listTags.mockResolvedValue({
-      ...makeTagResponse({ items: [makeTag(1)] }),
-      page: { hasMore: true, limit: 50 },
+  describe("malformed pagination answers", () => {
+    function hasMorePage(items: number[], nextCursor: string | null | undefined) {
+      return {
+        ...makeTagResponse({ items: items.map((index) => makeTag(index)) }),
+        page: { hasMore: true, limit: TAG_PAGE_LIMIT, nextCursor },
+      } as ListTagsResponse;
+    }
+
+    it.each([
+      ["null", null],
+      ["undefined", undefined],
+      ["an empty string", ""],
+      ["a blank string", "   "],
+      ["only whitespace characters", "\t\n\u3000"],
+    ])("fails the first load when hasMore=true comes with %s as the cursor", async (_name, cursor) => {
+      const { api, listTags } = createMockApi();
+      listTags.mockResolvedValue(hasMorePage([1], cursor));
+      const store = new TagCatalogStore(api);
+
+      store.start();
+      await flush();
+
+      expect(listTags).toHaveBeenCalledTimes(1);
+      expect(store.getSnapshot()).toMatchObject({ hasLoaded: false, status: "error", tags: [] });
     });
-    const missingStore = new TagCatalogStore(missing.api);
-    missingStore.start();
-    await flush();
 
-    expect(missing.listTags).toHaveBeenCalledTimes(1);
-    expect(names(missingStore)).toEqual(["テストタグ1"]);
+    it("fails when a later page reports hasMore without a usable cursor, without a partial catalog", async () => {
+      const { api, listTags } = createMockApi();
+      listTags
+        .mockResolvedValueOnce(hasMorePage([1], OPAQUE_CURSOR))
+        .mockResolvedValueOnce(hasMorePage([2], ""));
+      const store = new TagCatalogStore(api);
+
+      store.start();
+      await flush();
+
+      expect(listTags).toHaveBeenCalledTimes(2);
+      expect(store.getSnapshot()).toMatchObject({ hasLoaded: false, status: "error", tags: [] });
+    });
+
+    it("fails when the same cursor is handed out again", async () => {
+      const { api, listTags } = createMockApi();
+      listTags
+        .mockResolvedValueOnce(hasMorePage([1], "same"))
+        .mockResolvedValue(hasMorePage([2], "same"));
+      const store = new TagCatalogStore(api);
+
+      store.start();
+      await flush();
+
+      expect(listTags).toHaveBeenCalledTimes(2);
+      expect(store.getSnapshot()).toMatchObject({ hasLoaded: false, status: "error", tags: [] });
+    });
+
+    it("fails on a cycle of cursors (A -> B -> A)", async () => {
+      const { api, listTags } = createMockApi();
+      listTags
+        .mockResolvedValueOnce(hasMorePage([1], "A"))
+        .mockResolvedValueOnce(hasMorePage([2], "B"))
+        .mockResolvedValue(hasMorePage([3], "A"));
+      const store = new TagCatalogStore(api);
+
+      store.start();
+      await flush();
+
+      expect(listTags.mock.calls.map(([query]) => query.cursor)).toEqual([undefined, "A", "B"]);
+      expect(store.getSnapshot()).toMatchObject({ hasLoaded: false, status: "error", tags: [] });
+    });
+
+    it("keeps the last complete catalog when a refresh meets a malformed answer", async () => {
+      const { api, listTags } = createMockApi();
+      listTags
+        .mockResolvedValueOnce(makeTagResponse({ items: [makeTag(1), makeTag(2)] }))
+        .mockResolvedValueOnce(hasMorePage([3], OPAQUE_CURSOR))
+        .mockResolvedValueOnce(hasMorePage([4], null));
+      const store = new TagCatalogStore(api);
+
+      store.start();
+      await flush();
+      store.refresh();
+      await flush();
+
+      expect(store.getSnapshot()).toMatchObject({ hasLoaded: true, status: "error" });
+      expect(names(store)).toEqual(["テストタグ1", "テストタグ2"]);
+    });
+
+    it("recovers with a later refresh once the answers are well formed", async () => {
+      const { api, listTags } = createMockApi();
+      listTags
+        .mockResolvedValueOnce(hasMorePage([1], null))
+        .mockResolvedValueOnce(makeTagResponse({ items: [makeTag(1)] }));
+      const store = new TagCatalogStore(api);
+
+      store.start();
+      await flush();
+      expect(store.getSnapshot().status).toBe("error");
+      store.refresh();
+      await flush();
+
+      expect(store.getSnapshot()).toMatchObject({ hasLoaded: true, status: "ready" });
+      expect(names(store)).toEqual(["テストタグ1"]);
+    });
+
+    it("sends a cursor that contains whitespace exactly as received", async () => {
+      const { api, listTags } = createMockApi();
+      const cursor = "  padded cursor+/=  ";
+      listTags
+        .mockResolvedValueOnce(hasMorePage([1], cursor))
+        .mockResolvedValueOnce(makeTagResponse({ items: [makeTag(2)] }));
+      const store = new TagCatalogStore(api);
+
+      store.start();
+      await flush();
+
+      expect(listTags.mock.calls[1]?.[0]).toEqual({ cursor, limit: TAG_PAGE_LIMIT });
+      expect(names(store)).toEqual(["テストタグ1", "テストタグ2"]);
+    });
+  });
+
+  describe("page limit", () => {
+    it("stops a never-ending chain of fresh cursors after MAX_TAG_CATALOG_PAGES and fails", async () => {
+      const { api, listTags } = createMockApi();
+      let page = 0;
+      listTags.mockImplementation(async () => {
+        page += 1;
+
+        return {
+          ...makeTagResponse({ items: [makeTag(page)] }),
+          page: { hasMore: true, limit: TAG_PAGE_LIMIT, nextCursor: `cursor-${page}` },
+        };
+      });
+      const store = new TagCatalogStore(api);
+
+      store.start();
+      await flush();
+
+      expect(listTags).toHaveBeenCalledTimes(MAX_TAG_CATALOG_PAGES);
+      expect(store.getSnapshot()).toMatchObject({ hasLoaded: false, status: "error", tags: [] });
+    });
+
+    it("still succeeds when the last allowed page reports hasMore=false", async () => {
+      const { api, listTags } = createMockApi();
+      let page = 0;
+      listTags.mockImplementation(async () => {
+        page += 1;
+
+        return makeTagResponse({
+          items: [makeTag(page)],
+          nextCursor: page < MAX_TAG_CATALOG_PAGES ? `cursor-${page}` : undefined,
+        });
+      });
+      const store = new TagCatalogStore(api);
+
+      store.start();
+      await flush();
+
+      expect(listTags).toHaveBeenCalledTimes(MAX_TAG_CATALOG_PAGES);
+      expect(store.getSnapshot()).toMatchObject({ hasLoaded: true, status: "ready" });
+      expect(store.getSnapshot().tags).toHaveLength(MAX_TAG_CATALOG_PAGES);
+    });
+
+    it("keeps the last complete catalog when a refresh hits the limit", async () => {
+      const { api, listTags } = createMockApi();
+      listTags.mockResolvedValueOnce(makeTagResponse({ items: [makeTag(1)] }));
+      const store = new TagCatalogStore(api);
+
+      store.start();
+      await flush();
+      let page = 0;
+      listTags.mockImplementation(async () => {
+        page += 1;
+
+        return {
+          ...makeTagResponse({ items: [makeTag(100 + page)] }),
+          page: { hasMore: true, limit: TAG_PAGE_LIMIT, nextCursor: `cursor-${page}` },
+        };
+      });
+      store.refresh();
+      await flush();
+
+      expect(store.getSnapshot()).toMatchObject({ hasLoaded: true, status: "error" });
+      expect(names(store)).toEqual(["テストタグ1"]);
+    });
   });
 
   it.each([

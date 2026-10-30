@@ -30,11 +30,23 @@ describe("tag selection", () => {
     expect(toggleTag(selected, tag2)).toEqual([tag1, tag2]);
   });
 
-  it("lists the selected IDs in choice order whatever the selection order", () => {
-    const choices = [tag3, tag1, tag2];
+  it("lists the selected IDs sorted by UUID whatever the selection or catalog order", () => {
+    expect(selectedTagIds([tag2, tag3])).toEqual([tag2.id, tag3.id]);
+    expect(selectedTagIds([tag3, tag2])).toEqual([tag2.id, tag3.id]);
+    expect(selectedTagIds([tag3, tag1, tag2])).toEqual([tag1.id, tag2.id, tag3.id]);
+    expect(selectedTagIds([])).toEqual([]);
+  });
 
-    expect(selectedTagIds(choices, [tag2, tag3])).toEqual([tag3.id, tag2.id]);
-    expect(selectedTagIds(choices, [tag3, tag2])).toEqual([tag3.id, tag2.id]);
-    expect(selectedTagIds(choices, [])).toEqual([]);
+  it("gives the same IDs for the same selection when the catalog order changes", () => {
+    const selected = [tag1, tag2];
+    const idsBefore = selectedTagIds(selected);
+
+    // Choices are derived from the catalog; only their display order changes.
+    expect(mergeTagChoices([tag2, tag1], selected)).toEqual([tag2, tag1]);
+    expect(selectedTagIds(selected)).toEqual(idsBefore);
+  });
+
+  it("lists a repeated tag once", () => {
+    expect(selectedTagIds([tag1, tag1])).toEqual([tag1.id]);
   });
 });

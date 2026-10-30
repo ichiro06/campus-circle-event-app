@@ -27,12 +27,16 @@ export function toggleTag(
     : [...selected, tag];
 }
 
-/** Selected tag IDs in choice order, so equal selections always produce the same query. */
-export function selectedTagIds(
-  choices: readonly PublicTag[],
-  selected: readonly PublicTag[],
-): string[] {
-  const selectedIds = new Set(selected.map((tag) => tag.id));
-
-  return choices.filter((tag) => selectedIds.has(tag.id)).map((tag) => tag.id);
+/**
+ * The selected tag IDs as the `tagId` query value: unique and sorted by UUID.
+ *
+ * The filter is an OR over the set (docs/api-contract.md 4.1), so the order carries no meaning.
+ * Fixing it keeps the search key of an unchanged selection identical however the catalog is
+ * reordered or in whichever order the tags were picked, which would otherwise start a new
+ * search for nothing. The order the tags are shown in stays the catalog order.
+ */
+export function selectedTagIds(selected: readonly PublicTag[]): string[] {
+  return [...new Set(selected.map((tag) => tag.id))].sort((left, right) =>
+    left < right ? -1 : left > right ? 1 : 0,
+  );
 }

@@ -312,7 +312,7 @@ describe("SearchScreen tag filter", () => {
     expect(screen.getByRole("checkbox", { name: "テストタグ3", checked: true })).toBeTruthy();
   });
 
-  it("sends the UUIDs from the API as tagId, in catalog order, and drops it when cleared", async () => {
+  it("sends the UUIDs from the API as tagId, sorted by UUID, and drops it when cleared", async () => {
     const { api, listCircles } = setup([makeTag(3), makeTag(1), makeTag(2)]);
 
     await renderWithApi(<SearchScreen />, api);
@@ -322,13 +322,20 @@ describe("SearchScreen tag filter", () => {
     );
     await fireEvent.press(screen.getByRole("checkbox", { name: "テストタグ3" }));
 
-    // Pressed second, but listed by the catalog order: equal selections give equal queries.
+    // Tag 3 comes first in the catalog and was pressed second, but the query is sorted by
+    // UUID, so equal selections give equal queries. The chips keep the catalog order.
     await waitFor(() =>
       expect(lastQuery(listCircles)).toEqual({
         sort: "newest",
-        tagId: [tagId(3), tagId(2)],
+        tagId: [tagId(2), tagId(3)],
       }),
     );
+    expect(
+      screen
+        .getAllByRole("checkbox")
+        .map((chip) => chip.props.accessibilityLabel)
+        .filter((label: string) => label.startsWith("テストタグ")),
+    ).toEqual(["テストタグ3", "テストタグ1", "テストタグ2"]);
 
     await fireEvent.press(screen.getByRole("checkbox", { name: "テストタグ3" }));
     await fireEvent.press(screen.getByRole("checkbox", { name: "テストタグ2" }));
@@ -584,6 +591,76 @@ describe("SearchScreen tag filter", () => {
     await fireEvent.press(screen.getByRole("checkbox", { name: "テストタグ1" }));
     expect(screen.queryByRole("checkbox", { name: "テストタグ1" })).toBeNull();
     await waitFor(() => expect(lastQuery(listCircles)).toEqual({ sort: "newest" }));
+  });
+
+  it("does not search again when only the catalog order changes", async () => {
+    const { api, listCircles, listTags } = setup([makeTag(1), makeTag(2), makeTag(3)]);
+
+    await renderWithApi(<SearchScreen />, api);
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "テストタグ1" }));
+    await fireEvent.press(screen.getByRole("checkbox", { name: "テストタグ2" }));
+    await waitFor(() =>
+      expect(lastQuery(listCircles)).toEqual({
+        sort: "newest",
+        tagId: [tagId(1), tagId(2)],
+      }),
+    );
+    const callsBefore = listCircles.mock.calls.length;
+
+    // The server now returns the same tags in another order: [2, 1, 3].
+    listTags.mockResolvedValue(
+      makeTagResponse({ items: [makeTag(2), makeTag(1), makeTag(3)] }),
+    );
+    await pullToRefresh();
+    await waitFor(() => {
+      const labels = screen
+        .getAllByRole("checkbox")
+        .map((chip) => chip.props.accessibilityLabel)
+        .filter((label: string) => label.startsWith("テストタグ"));
+      expect(labels).toEqual(["テストタグ2", "テストタグ1", "テストタグ3"]);
+    });
+
+    // The pull-to-refresh reloads the current list once. A search key that changed with the
+    // catalog order would have started a second, new search on top of it.
+    expect(listCircles.mock.calls.length - callsBefore).toBe(1);
+    for (const [query] of listCircles.mock.calls.slice(callsBefore)) {
+      expect(query).toEqual({ sort: "newest", tagId: [tagId(1), tagId(2)] });
+    }
+    expect(screen.getByRole("checkbox", { name: "テストタグ2", checked: true })).toBeTruthy();
+  });
+
+  it("searches again from the first page when a tag is added or removed", async () => {
+    const { api, listCircles } = setup();
+    listCircles
+      .mockReset()
+      .mockResolvedValueOnce(
+        makeListResponse({ items: [makeCircle(1)], nextCursor: OPAQUE_CURSOR }),
+      )
+      .mockResolvedValue(makeListResponse({ items: [makeCircle(2)] }));
+
+    await renderWithApi(<SearchScreen />, api);
+    await screen.findByText("テストサークル1");
+
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "テストタグ1" }));
+    await waitFor(() =>
+      expect(lastQuery(listCircles)).toEqual({ sort: "newest", tagId: [tagId(1)] }),
+    );
+    await fireEvent.press(screen.getByRole("checkbox", { name: "テストタグ3" }));
+    await waitFor(() =>
+      expect(lastQuery(listCircles)).toEqual({
+        sort: "newest",
+        tagId: [tagId(1), tagId(3)],
+      }),
+    );
+    await fireEvent.press(screen.getByRole("checkbox", { name: "テストタグ1" }));
+    await waitFor(() =>
+      expect(lastQuery(listCircles)).toEqual({ sort: "newest", tagId: [tagId(3)] }),
+    );
+
+    expect(listCircles).toHaveBeenCalledTimes(4);
+    for (const [query] of listCircles.mock.calls) {
+      expect(query).not.toHaveProperty("cursor");
+    }
   });
 
   it("does not offer a tag the catalog never contained", async () => {

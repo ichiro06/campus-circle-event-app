@@ -5,6 +5,16 @@ import type { PublicTag } from "./types";
 /** docs/api-contract.md 4.3: `limit` defaults to 20 and is capped at 50. */
 export const TAG_PAGE_LIMIT = 50;
 
+/**
+ * Technical guard against a runaway request chain, not a product limit on the number of tags.
+ *
+ * 100 pages of TAG_PAGE_LIMIT tags is 5,000 tags, orders of magnitude above any realistic
+ * catalog (the initial vocabulary is 7 tags), so a healthy API never reaches it. It only stops a
+ * misbehaving API that keeps answering `hasMore: true` with a new cursor each time. Reaching it
+ * is a failure: the catalog is never cut off at this size and shown as if it were complete.
+ */
+export const MAX_TAG_CATALOG_PAGES = 100;
+
 export type TagCatalogStatus = "loading" | "ready" | "error";
 
 export interface TagCatalogSnapshot {
@@ -30,9 +40,14 @@ const INITIAL_SNAPSHOT: TagCatalogSnapshot = {
  * reports no further page.
  *
  * The cursor is opaque: it is kept exactly as received and sent back unchanged, never decoded.
- * The API order is kept and `page.totalCount` is never read. The catalog replaces the previous
- * one only after every page has arrived, so a failure part-way never shows a partial catalog,
- * and a late response of a cancelled or superseded load can never overwrite a newer state.
+ * The API order is kept and `page.totalCount` is never read.
+ *
+ * A load ends successfully only when the API answers `hasMore: false`. `hasMore: true` without a
+ * usable next cursor (missing, empty, blank, or one already sent, which includes a cycle) and a
+ * chain longer than MAX_TAG_CATALOG_PAGES are malformed answers and fail the load. The catalog
+ * replaces the previous one only after every page has arrived, so a failure part-way never shows
+ * a partial catalog, and a late response of a cancelled or superseded load can never overwrite a
+ * newer state.
  */
 export class TagCatalogStore {
   private snapshot: TagCatalogSnapshot = INITIAL_SNAPSHOT;
@@ -99,7 +114,7 @@ export class TagCatalogStore {
       const requestedCursors = new Set<string>();
       let cursor: string | undefined;
 
-      for (;;) {
+      for (let pageCount = 1; ; pageCount += 1) {
         const response = await this.api.listTags(
           cursor === undefined
             ? { limit: TAG_PAGE_LIMIT }
@@ -118,16 +133,23 @@ export class TagCatalogStore {
           }
         }
 
-        const nextCursor = response.page.nextCursor ?? null;
+        if (!response.page.hasMore) {
+          break;
+        }
 
-        // Stop on a missing cursor, or on one that was already sent, so a misbehaving server
-        // can never keep this loop running.
+        const nextCursor = response.page.nextCursor;
+
+        // trim() only decides whether the value is blank; the cursor itself is sent untouched.
         if (
-          !response.page.hasMore ||
-          nextCursor === null ||
+          typeof nextCursor !== "string" ||
+          nextCursor.trim() === "" ||
           requestedCursors.has(nextCursor)
         ) {
-          break;
+          throw new Error("Tag catalog returned hasMore without a usable next cursor");
+        }
+
+        if (pageCount >= MAX_TAG_CATALOG_PAGES) {
+          throw new Error("Tag catalog exceeded the page limit");
         }
 
         requestedCursors.add(nextCursor);
@@ -137,8 +159,9 @@ export class TagCatalogStore {
       this.update({ tags, status: "ready", hasLoaded: true });
     } catch {
       // A cancelled load is superseded or stopped, and leaves the state to whoever did that.
-      // Every other failure is shown as "error" only: the tag catalog is an optional aid and
-      // must not turn into a search error or an empty result.
+      // Every other failure, a malformed pagination answer included, is shown as "error" only:
+      // the tag catalog is an optional aid and must not turn into a search error or an empty
+      // result. `tags` and `hasLoaded` keep the last complete catalog.
       if (generation === this.generation) {
         this.update({ status: "error" });
       }

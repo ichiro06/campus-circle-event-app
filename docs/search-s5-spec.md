@@ -130,7 +130,7 @@ DEC-066 D3と、FR-005の旧完成条件「0件の場合は条件を減らす案
 - 実装事実の注記（2026-10-30。上記D4の承認済み条件を変更・延長するものではない。許可条件の期間や解除条件を本書が新たに定めることもしない）:
   - 2026-10-30にPR #46がmainへmergeされ、公開タグ一覧APIのbackend実装は完了した。
   - [過去] PR #47時点（2026-10-30）まで、mobileからのタグ一覧API接続とタグ選択UIは未実装だった。
-  - S5-M1のPRで、検索画面（`SearchScreen`）の通常タグfilter（`GET /api/v1/tags`への接続、複数選択、`tagId`の送信）をmobileへ実装した。これは通常のfilter UIであり、0件時のタグ導線ではない。
+  - S5-M1のPR（PR #48。mainには未merge）で、検索画面（`SearchScreen`）の通常タグfilter（`GET /api/v1/tags`への接続、複数選択、`tagId`の送信）をmobileへ実装した。これは通常のfilter UIであり、0件時のタグ導線ではない。
   - 0件時のタグ導線（「タグから探し直す」）は未実装である。現行mobileには旧0件画面（条件解除のみ）が残っている。
   - DEC-067 D2〜D5は未達で、FR-005はPARTIALである。
   - 「旧画面が現在も存在する」ことは実装事実であり、「暫定利用が現在も許可されている」ことの根拠にはしない。
@@ -224,18 +224,18 @@ DEC-066で未決だった次の項目は、DEC-068（2026-10-18）で決定し�
 
 ## 9. 現在の実装状態（2026-10-30更新、事実の記録）
 
-[過去] DEC-068同期（PR #42）時点の本書の更新はdocs-onlyであり、backend、mobile、DB migration、OpenAPI生成物は変更していなかった。2026-10-18のD4実装PRでは、backendの活動時間帯filter（下表「活動時間帯」）だけを変更した。mobile、DB migration、OpenAPI生成物は変更していない。2026-10-29の公開タグ一覧API実装PR（S5 PR-2）では、backendの`Tag.is_active`のORMマッピング、`GET /api/v1/tags`、明示実行の初期tag seed、OpenAPI snapshotとmobile生成型を変更した。DB migrationは追加しておらず、mobileの画面は変更していない。このPR #46は2026-10-30に人間の明示承認で`Create a merge commit`によりmainへmerge済み（merge commit `3b07769`）。独立reviewの結果はREADY_FOR_HUMAN_REVIEW（P0〜P2なし）で、merge前のCI全4ジョブが成功していた。環境別のseed適用は含まない。S5-M1のPR（mobileの通常タグfilter）はmobileだけを変更し（検索画面、タグAPI facade、タグ一覧の取得・選択ロジック、テスト）、backend、DB migration、OpenAPI生成物、依存関係は変更していない。
+[過去] DEC-068同期（PR #42）時点の本書の更新はdocs-onlyであり、backend、mobile、DB migration、OpenAPI生成物は変更していなかった。2026-10-18のD4実装PRでは、backendの活動時間帯filter（下表「活動時間帯」）だけを変更した。mobile、DB migration、OpenAPI生成物は変更していない。2026-10-29の公開タグ一覧API実装PR（S5 PR-2）では、backendの`Tag.is_active`のORMマッピング、`GET /api/v1/tags`、明示実行の初期tag seed、OpenAPI snapshotとmobile生成型を変更した。DB migrationは追加しておらず、mobileの画面は変更していない。このPR #46は2026-10-30に人間の明示承認で`Create a merge commit`によりmainへmerge済み（merge commit `3b07769`）。独立reviewの結果はREADY_FOR_HUMAN_REVIEW（P0〜P2なし）で、merge前のCI全4ジョブが成功していた。環境別のseed適用は含まない。S5-M1のPR（PR #48。mobileの通常タグfilter。mainには未merge）はmobileだけを変更し（検索画面、タグAPI facade、タグ一覧の取得・選択ロジック、テスト）、backend、DB migration、OpenAPI生成物、依存関係は変更していない。
 
 | 領域 | 状態 |
 | --- | --- |
 | エリア（都道府県・市区町村の構造化filter） | 未実装。`q`が都道府県・市区町村・施設名・最寄駅をliteral substringで検索するだけ。`activity_locations`の`prefecture` / `city`は自由記述の文字列で、地域コードの列はない（DEC-068 H7のデータ設計は未着手） |
 | 年間費用filter | 未実装（`annual_cost_*`列はあるがfilterなし） |
-| 公開タグ一覧API | backendに実装済みで、mainにmerge済み（S5 PR-2、PR #46。2026-10-30にmerge。`GET /api/v1/tags`）。認証不要、activeなtagだけを`display_order, id`順にcursor paginationで返し、itemは`id` / `name` / `slug`。技術設計は`docs/api-contract.md` 4.3。mobileの通常タグfilter（タグAPI接続・タグ選択UI・`tagId`送信）はS5-M1のPRで実装した（自動テスト済み。Simulator・実機での確認は未実施）。0件時のタグ導線は未実装。`tagId` filterは実装済み。[過去] PR-2前は未実装、PR #46のmerge前（2026-10-29）はreview・merge承認前 |
+| 公開タグ一覧API | backendに実装済みで、mainにmerge済み（S5 PR-2、PR #46。2026-10-30にmerge。`GET /api/v1/tags`）。認証不要、activeなtagだけを`display_order, id`順にcursor paginationで返し、itemは`id` / `name` / `slug`。技術設計は`docs/api-contract.md` 4.3。mobileの通常タグfilter（タグAPI接続・タグ選択UI・`tagId`送信）はS5-M1のPR（PR #48。mainには未merge）で実装した（自動テスト済み。Simulator・実機での確認は未実施）。0件時のタグ導線は未実装。`tagId` filterは実装済み。[過去] PR-2前は未実装、PR #46のmerge前（2026-10-29）はreview・merge承認前 |
 | `tags.is_active` | 初回migration（revision `20260915_0001`）で`categories`・`tags`の両方に`is_active`（BOOLEAN、NOT NULL、server default true）を定義済み。backendのORM（`backend/app_private/models.py`の`Tag`）には2026-10-29のS5 PR-2でマッピングした（新しいmigrationなし）。参照するのは公開タグ一覧APIだけで、mobileは参照していない（公開タグ一覧のitemは`isActive`を返さない）。実DBへの適用状態は未確認。初期7タグのseed CLI（`python -m app_private.seed_tags`）は実装済み（mainにmerge済み）だが、明示実行する設計であり、開発・staging・本番のどの環境にも適用済みとは確認していない（未実施・未確認）。初期7タグのIDは固定UUIDv5で、「主keyはUUID v4」の例外（`docs/data-dictionary.md` 3.4）。以前の「active / inactiveを表す列がない」という記述は事実誤記であり、Notion DEC-066・DEC-067とあわせて訂正した。[過去] ORM未マッピングはPR-2前の状態 |
 | タグの既存表示・検索（DEC-068 H5の維持対象） | `tagId` filter、`q`によるタグ名（`Tag.name`）の部分一致検索、Circleのタグ表示（`tags` / `featuredTags`）は実装済みで、いずれも`is_active`を参照しない。PR-2のPostgreSQL統合テストで、非アクティブtagが一覧から除外される一方、これら3つの既存挙動と非公開draft revisionの非公開性が維持されることを確認した |
 | 活動時間帯 | backendに実装済み（2026-10-18のD4実装PR）。`weekday`と`timeBand`は公開revisionの同一activity scheduleレコードに対する1つの存在判定で評価する。通常4時間帯の指定は`all_day`にも一致し、`all_day` / `irregular`の単独指定はその値だけに一致する。両filter未指定時はschedule条件を加えない。API parameter・enum・response・cursor仕様は変更なし。mobileの曜日・時間帯UIは未実装。[過去] D4実装PR前は、`weekday`と`timeBand`をそれぞれ独立した存在判定で評価し、`all_day`を各時間帯へ展開していなかった |
-| mobile | 通常タグfilterのみS5-M1のPRで実装した（`SearchScreen`が公開タグ一覧を取得し、複数選択した`tagId`を送信する。自動テスト済みで、Simulator・実機での確認は未実施）。エリア、年間費用、曜日・活動時間帯などS5の他のfilter UIは未実装 |
-| 0件時の導線（DEC-067） | 条件ありの0件で「条件に合うサークルが見つかりません」と、キーワードと現行の全filterを解除する「検索条件を解除」を表示する（実装済み）。0件と通信エラーの分岐（loading → error → empty）も実装済み。この旧0件画面は現行mobileに残っているが、D2〜D5を満たすものではない（公開タグ一覧APIはbackend実装済みだが、mobileは未接続。FR-005はPARTIAL）。D4が暫定利用を認めた条件は4.5のとおりで、この表はその期間や許可を延長しない。未実装: 「検索条件を見直す」の独立した操作、名称「検索条件をすべて解除」への変更、「タグから探し直す」導線と説明文、0件時の導線としてのタグ一覧API不可時の分岐（D4）、直前条件へ戻す操作。[過去] mobileの公開タグ一覧API接続と`SearchScreen`の`tagId`送信・タグ選択UIは、S5-M1のPR前は未実装だった（実装後は上の「mobile」行のとおり通常のfilter UIとして存在し、0件時の導線ではない） |
+| mobile | 通常タグfilterのみS5-M1のPR（PR #48。mainには未merge）で実装した（`SearchScreen`が公開タグ一覧を取得し、複数選択した`tagId`を送信する。自動テスト済みで、Simulator・実機での確認は未実施）。エリア、年間費用、曜日・活動時間帯などS5の他のfilter UIは未実装 |
+| 0件時の導線（DEC-067） | 条件ありの0件で「条件に合うサークルが見つかりません」と、キーワードと現行の全filterを解除する「検索条件を解除」を表示する（実装済み）。0件と通信エラーの分岐（loading → error → empty）も実装済み。この旧0件画面は現行mobileに残っているが、D2〜D5を満たすものではない（公開タグ一覧APIはbackendに実装済みでmainにmerge済み。通常タグfilterではmobileから公開タグ一覧APIへの接続を実装済み（PR #48。mainには未merge）だが、DEC-067の0件時専用の「タグから探し直す」導線は未実装。DEC-067 D2〜D5は未達で、FR-005はPARTIAL）。D4が暫定利用を認めた条件は4.5のとおりで、この表はその期間や許可を延長しない。未実装: 「検索条件を見直す」の独立した操作、名称「検索条件をすべて解除」への変更、「タグから探し直す」導線と説明文、0件時の導線としてのタグ一覧API不可時の分岐（D4）、直前条件へ戻す操作。[過去] mobileの公開タグ一覧API接続と`SearchScreen`の`tagId`送信・タグ選択UIは、PR #48の実装前は未実装だった（PR #48〔mainには未merge〕の実装後は上の「mobile」行のとおり通常のfilter UIとして存在し、0件時の導線ではない） |
 
 ## 10. S5の状態
 
@@ -243,6 +243,6 @@ DEC-066で未決だった次の項目は、DEC-068（2026-10-18）で決定し�
 - `S5_SEARCH_ENTRY_GATE = READY_WITH_SCOPE_LIMIT`（維持）
 - `S5_IMPLEMENTATION = NOT_COMPLETE`
 - S5全体のCOMPLETE / READY_ALLは宣言しない。エリア検索は沿線・駅の実装までPARTIAL、人気タグ要件は通常タグ検索への置換として扱う。
-- DEC-068: 意思決定は`HUMAN_APPROVED`。Notion記録とrepository docs同期は意思決定の記録であり、H1・H2・H7は未実装である。H5はbackendの公開タグ一覧API（`is_active`の扱い）として2026-10-29に実装し、mobileの通常タグfilterをS5-M1のPRで実装した（Simulator・実機での確認は未実施）。S5全体の完了ではない。
-- `S5_TAG_API_IMPLEMENTATION`: backend実装はPR-2（PR #46）で2026-10-30にmainへmerge済み（人間の明示承認）。環境別のseed適用は未実施・未確認。`S5_MOBILE_TAG_UI = NOT_COMPLETE`（維持）。通常タグfilterはS5-M1のPRで実装し自動テスト済みだが、Simulator・実機確認、0件時のタグ導線（DEC-067 D2〜D5）、DEC-069の方針に沿ったUIは未完了である。[過去] merge前は「提出済み（review・merge承認前）」だった。
+- DEC-068: 意思決定は`HUMAN_APPROVED`。Notion記録とrepository docs同期は意思決定の記録であり、H1・H2・H7は未実装である。H5はbackendの公開タグ一覧API（`is_active`の扱い）として2026-10-29に実装し、mobileの通常タグfilterをS5-M1のPR（PR #48。mainには未merge）で実装した（Simulator・実機での確認は未実施）。S5全体の完了ではない。
+- `S5_TAG_API_IMPLEMENTATION`: backend実装はPR-2（PR #46）で2026-10-30にmainへmerge済み（人間の明示承認）。環境別のseed適用は未実施・未確認。`S5_MOBILE_TAG_UI = NOT_COMPLETE`（維持）。通常タグfilterはS5-M1のPR（PR #48。mainには未merge）で実装し自動テスト済みだが、Simulator・実機確認、0件時のタグ導線（DEC-067 D2〜D5）、DEC-069の方針に沿ったUIは未完了である。[過去] merge前は「提出済み（review・merge承認前）」だった。
 - FR-005の0件時の導線: 意思決定は`HUMAN_APPROVED`（DEC-067）、実装は未完了。公開タグ一覧APIとタグ導線の実装までPARTIALで、FR-005全体のCOMPLETEも宣言しない。
