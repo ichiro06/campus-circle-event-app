@@ -5,11 +5,13 @@ import { useCirclesApi } from "./circles-api-context";
 
 export interface CircleDetailState extends CircleDetailSnapshot {
   retry: () => void;
+  refresh: () => void;
 }
 
 const NO_CIRCLE: CircleDetailSnapshot = {
   circle: null,
   isLoading: false,
+  isRefreshing: false,
   error: null,
   lastUpdatedAt: null,
 };
@@ -36,5 +38,5 @@ export function useCircleDetail(circleId: string | undefined): CircleDetailState
     store?.getSnapshot ?? noSnapshot,
   );
 
-  return { ...snapshot, retry: store?.retry ?? noop };
+  return { ...snapshot, retry: store?.retry ?? noop, refresh: store?.refresh ?? noop };
 }

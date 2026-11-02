@@ -1,6 +1,14 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, type ReactElement } from "react";
-import { AccessibilityInfo, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, type ReactElement } from "react";
+import {
+  AccessibilityInfo,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { Badge } from "@/components/badge";
 import { CircleListSkeleton } from "@/components/circle-list-skeleton";
@@ -8,7 +16,7 @@ import { ConnectionBanner } from "@/components/connection-banner";
 import { ErrorState, OfflineState } from "@/components/common-states";
 import { DetailSection, InfoRow } from "@/components/detail-section";
 import { SelfReportedRating } from "@/components/self-reported-rating";
-import { colors, spacing } from "@/components/theme";
+import { colors, MIN_TAP_TARGET, spacing } from "@/components/theme";
 import { describeFailure } from "@/circles/failure-presentation";
 import {
   formatCostAmount,
@@ -193,6 +201,23 @@ export default function CircleDetailScreen() {
   const resolvedCircleId = Array.isArray(circleId) ? circleId[0] : circleId;
   const detail = useCircleDetail(resolvedCircleId);
 
+  const previousRefresh = useRef({ circleId: resolvedCircleId, refreshing: false });
+
+  useEffect(() => {
+    const previous = previousRefresh.current;
+    if (detail.isRefreshing) {
+      AccessibilityInfo.announceForAccessibility("情報を更新中です");
+    } else if (previous.circleId === resolvedCircleId && previous.refreshing) {
+      AccessibilityInfo.announceForAccessibility(
+        detail.error ? "情報を更新できませんでした" : "情報を更新しました",
+      );
+    }
+    previousRefresh.current = {
+      circleId: resolvedCircleId,
+      refreshing: detail.isRefreshing,
+    };
+  }, [detail.error, detail.isRefreshing, resolvedCircleId]);
+
   let body: ReactElement;
 
   if (!resolvedCircleId) {
@@ -257,9 +282,33 @@ export default function CircleDetailScreen() {
 
   return (
     <ScrollView
+      alwaysBounceVertical
       contentContainerStyle={styles.content}
+      refreshControl={resolvedCircleId ? (
+        <RefreshControl
+          accessibilityLabel="サークル情報を更新"
+          colors={[colors.accent]}
+          onRefresh={detail.refresh}
+          refreshing={detail.isRefreshing}
+          tintColor={colors.accent}
+        />
+      ) : undefined}
       style={styles.screen}
+      testID="circle-detail-scroll"
     >
+      {detail.circle ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ busy: detail.isLoading, disabled: detail.isLoading }}
+          disabled={detail.isLoading}
+          onPress={detail.refresh}
+          style={styles.refreshAction}
+        >
+          <Text style={styles.refreshLabel}>
+            {detail.isLoading ? "情報を更新中です" : "情報を更新"}
+          </Text>
+        </Pressable>
+      ) : null}
       {body}
     </ScrollView>
   );
@@ -274,6 +323,17 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     gap: spacing.md,
     padding: spacing.lg,
+  },
+  refreshAction: {
+    minHeight: MIN_TAP_TARGET,
+    justifyContent: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: spacing.md,
+  },
+  refreshLabel: {
+    color: colors.accent,
+    fontSize: 16,
+    fontWeight: "600",
   },
   padded: {
     paddingVertical: spacing.lg,
