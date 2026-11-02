@@ -1,6 +1,14 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, type ReactElement } from "react";
-import { AccessibilityInfo, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  AccessibilityInfo,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { Badge } from "@/components/badge";
 import { CircleListSkeleton } from "@/components/circle-list-skeleton";
@@ -8,7 +16,7 @@ import { ConnectionBanner } from "@/components/connection-banner";
 import { ErrorState, OfflineState } from "@/components/common-states";
 import { DetailSection, InfoRow } from "@/components/detail-section";
 import { SelfReportedRating } from "@/components/self-reported-rating";
-import { colors, spacing } from "@/components/theme";
+import { colors, MIN_TAP_TARGET, spacing } from "@/components/theme";
 import { describeFailure } from "@/circles/failure-presentation";
 import {
   formatCostAmount,
@@ -192,6 +200,24 @@ export default function CircleDetailScreen() {
   }>();
   const resolvedCircleId = Array.isArray(circleId) ? circleId[0] : circleId;
   const detail = useCircleDetail(resolvedCircleId);
+  const { subscribeToUpdates } = detail;
+
+  useEffect(() => subscribeToUpdates((event) => {
+    switch (event.phase) {
+      case "start":
+        AccessibilityInfo.announceForAccessibility("情報を更新中です");
+        break;
+      case "success":
+        AccessibilityInfo.announceForAccessibility("情報を更新しました");
+        break;
+      case "failure":
+        AccessibilityInfo.announceForAccessibility("情報を更新できませんでした");
+        break;
+      // Cancellation/cleanup must not announce a successful or failed read.
+      case "cancelled":
+        break;
+    }
+  }), [subscribeToUpdates]);
 
   let body: ReactElement;
 
@@ -257,9 +283,33 @@ export default function CircleDetailScreen() {
 
   return (
     <ScrollView
+      alwaysBounceVertical
       contentContainerStyle={styles.content}
+      refreshControl={resolvedCircleId ? (
+        <RefreshControl
+          accessibilityLabel="サークル情報を更新"
+          colors={[colors.accent]}
+          onRefresh={detail.refresh}
+          refreshing={detail.isRefreshing}
+          tintColor={colors.accent}
+        />
+      ) : undefined}
       style={styles.screen}
+      testID="circle-detail-scroll"
     >
+      {detail.circle ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ busy: detail.isLoading, disabled: detail.isLoading }}
+          disabled={detail.isLoading}
+          onPress={detail.refresh}
+          style={styles.refreshAction}
+        >
+          <Text style={styles.refreshLabel}>
+            {detail.isLoading ? "情報を更新中です" : "情報を更新"}
+          </Text>
+        </Pressable>
+      ) : null}
       {body}
     </ScrollView>
   );
@@ -274,6 +324,17 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     gap: spacing.md,
     padding: spacing.lg,
+  },
+  refreshAction: {
+    minHeight: MIN_TAP_TARGET,
+    justifyContent: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: spacing.md,
+  },
+  refreshLabel: {
+    color: colors.accent,
+    fontSize: 16,
+    fontWeight: "600",
   },
   padded: {
     paddingVertical: spacing.lg,
