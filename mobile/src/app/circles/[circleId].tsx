@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, type ReactElement } from "react";
+import { useEffect, type ReactElement } from "react";
 import {
   AccessibilityInfo,
   Pressable,
@@ -200,57 +200,24 @@ export default function CircleDetailScreen() {
   }>();
   const resolvedCircleId = Array.isArray(circleId) ? circleId[0] : circleId;
   const detail = useCircleDetail(resolvedCircleId);
+  const { subscribeToUpdates } = detail;
 
-  const previousLoad = useRef({
-    circleId: resolvedCircleId,
-    source: detail.refresh,
-    isLoading: detail.isLoading,
-    pendingUpdate: null as { lastUpdatedAt: Date | null } | null,
-  });
-
-  useEffect(() => {
-    const previous = previousLoad.current;
-    // A replacement store (even for the same ID) cannot finish the previous store's update.
-    const sameSource =
-      previous.circleId === resolvedCircleId && previous.source === detail.refresh;
-    let pendingUpdate = sameSource ? previous.pendingUpdate : null;
-
-    if (sameSource && !previous.isLoading && detail.isLoading && detail.circle) {
-      pendingUpdate = { lastUpdatedAt: detail.lastUpdatedAt };
-      AccessibilityInfo.announceForAccessibility("情報を更新中です");
-    } else if (
-      sameSource && previous.isLoading && !detail.isLoading && pendingUpdate
-    ) {
-      if (detail.error) {
-        AccessibilityInfo.announceForAccessibility("情報を更新できませんでした");
-      } else if (detail.lastUpdatedAt !== pendingUpdate.lastUpdatedAt) {
-        // stop()/cancellation also ends loading; only a successful read advances this value.
+  useEffect(() => subscribeToUpdates((event) => {
+    switch (event.phase) {
+      case "start":
+        AccessibilityInfo.announceForAccessibility("情報を更新中です");
+        break;
+      case "success":
         AccessibilityInfo.announceForAccessibility("情報を更新しました");
-      }
-      pendingUpdate = null;
+        break;
+      case "failure":
+        AccessibilityInfo.announceForAccessibility("情報を更新できませんでした");
+        break;
+      // Cancellation/cleanup must not announce a successful or failed read.
+      case "cancelled":
+        break;
     }
-
-    previousLoad.current = {
-      circleId: resolvedCircleId,
-      source: detail.refresh,
-      isLoading: detail.isLoading,
-      pendingUpdate,
-    };
-  }, [
-    detail.circle,
-    detail.error,
-    detail.isLoading,
-    detail.lastUpdatedAt,
-    detail.refresh,
-    resolvedCircleId,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      // Effect cleanup is cancellation, never a successful announcement on reactivation.
-      previousLoad.current.pendingUpdate = null;
-    };
-  }, []);
+  }), [subscribeToUpdates]);
 
   let body: ReactElement;
 

@@ -13,6 +13,14 @@ export interface CircleDetailSnapshot {
   lastUpdatedAt: Date | null;
 }
 
+/** Lifecycle of an accepted read that retains existing Circle data. */
+export interface CircleDetailUpdateEvent {
+  operationId: number;
+  phase: "start" | "success" | "failure" | "cancelled";
+}
+
+type UpdateListener = (event: CircleDetailUpdateEvent) => void;
+
 const INITIAL_SNAPSHOT: CircleDetailSnapshot = {
   circle: null,
   isLoading: true,
@@ -25,6 +33,8 @@ const INITIAL_SNAPSHOT: CircleDetailSnapshot = {
 export class CircleDetailStore {
   private snapshot: CircleDetailSnapshot = INITIAL_SNAPSHOT;
   private readonly listeners = new Set<() => void>();
+  private readonly updateListeners = new Set<UpdateListener>();
+  private pendingUpdateId: number | null = null;
   private controller: AbortController | null = null;
   private generation = 0;
   private active = false;
@@ -42,6 +52,18 @@ export class CircleDetailStore {
     };
   };
 
+  /** Events are delivered directly, independently of snapshot/render batching. */
+  subscribeToUpdates = (listener: UpdateListener): (() => void) => {
+    this.updateListeners.add(listener);
+    return () => { this.updateListeners.delete(listener); };
+  };
+
+  private emitUpdate(operationId: number, phase: CircleDetailUpdateEvent["phase"]): void {
+    for (const listener of this.updateListeners) {
+      listener({ operationId, phase });
+    }
+  }
+
   getSnapshot = (): CircleDetailSnapshot => this.snapshot;
 
   /** Safe to call again after stop(): it refetches only if nothing was loaded yet. */
@@ -53,11 +75,14 @@ export class CircleDetailStore {
   }
 
   stop(): void {
+    const cancelledUpdateId = this.pendingUpdateId;
+    this.pendingUpdateId = null;
     this.active = false;
     this.generation += 1;
     this.controller?.abort();
     this.controller = null;
     this.update({ isLoading: false, isRefreshing: false });
+    if (cancelledUpdateId !== null) this.emitUpdate(cancelledUpdateId, "cancelled");
   }
 
   /** Retry the failed read without pretending it was a pull gesture. */
@@ -88,7 +113,13 @@ export class CircleDetailStore {
     const generation = this.generation;
     const { signal } = this.controller;
 
+    // Initial reads belong to the Skeleton notification system. Only accepted
+    // reads with retained data produce this operation lifecycle.
+    const operationId = this.snapshot.circle ? generation : null;
+    this.pendingUpdateId = operationId;
     this.update({ isLoading: true, isRefreshing, error: null });
+    if (operationId !== null) this.emitUpdate(operationId, "start");
+    let outcome: Exclude<CircleDetailUpdateEvent["phase"], "start"> = "cancelled";
 
     try {
       const response = await this.api.getCircle(this.circleId, { signal });
@@ -101,6 +132,7 @@ export class CircleDetailStore {
         circle: response.data,
         lastUpdatedAt: new Date(),
       });
+      outcome = "success";
     } catch (caught) {
       if (generation !== this.generation) {
         return;
@@ -115,10 +147,13 @@ export class CircleDetailStore {
       this.update({
         error: { failure, occurredAt: new Date() },
       });
+      outcome = "failure";
     } finally {
       if (generation === this.generation) {
         this.controller = null;
+        this.pendingUpdateId = null;
         this.update({ isLoading: false, isRefreshing: false });
+        if (operationId !== null) this.emitUpdate(operationId, outcome);
       }
     }
   }

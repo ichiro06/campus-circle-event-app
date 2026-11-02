@@ -1,5 +1,6 @@
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import * as React from "react";
 import { AccessibilityInfo } from "react-native";
 
 import { ApiClientError } from "../src/api";
@@ -484,6 +485,131 @@ describe("CircleDetailScreen", () => {
     expect(screen.getByTestId("circle-detail-scroll").props.refreshControl.props.refreshing).toBe(false);
     await act(async () => retry.resolve(makeDetailResponse(makeDetail(1))));
     expectAnnouncements("情報を更新中です", "情報を更新しました");
+  });
+
+  async function prepareUpdate(method: "pull" | "button" | "retry") {
+    const observed = jest.spyOn(detailHook, "useCircleDetail");
+    const { api, getCircle } = createMockApi();
+    getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)));
+    await renderWithApi(<CircleDetailScreen />, api);
+    await screen.findByText("テストサークル1");
+    if (method === "retry") {
+      getCircle.mockRejectedValueOnce(networkFailure());
+      await pullToRefresh();
+      await screen.findByText("オフラインです");
+    }
+    announce.mockClear();
+    observed.mockClear();
+    return { api, getCircle, observed };
+  }
+
+  async function performUpdate(method: "pull" | "button" | "retry") {
+    if (method === "pull") {
+      await pullToRefresh();
+    } else {
+      await fireEvent.press(screen.getByRole("button", {
+        name: method === "retry" ? "再試行" : "情報を更新",
+      }));
+    }
+  }
+
+  const fastUpdates = (["pull", "button", "retry"] as const).flatMap((method) =>
+    (["success", "failure"] as const).map((outcome) => ({ method, outcome })),
+  );
+
+  it.each(fastUpdates)("announces immediate $method $outcome exactly once", async ({ method, outcome }) => {
+    const { getCircle } = await prepareUpdate(method);
+    if (outcome === "success") {
+      getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1, { headline: "即時更新" })));
+    } else {
+      getCircle.mockRejectedValueOnce(networkFailure());
+    }
+    await performUpdate(method);
+    expectAnnouncements("情報を更新中です", outcome === "success"
+      ? "情報を更新しました" : "情報を更新できませんでした");
+    if (outcome === "success") expect(screen.getByText("即時更新")).toBeTruthy();
+    else expect(screen.getByText("オフラインです")).toBeTruthy();
+  });
+
+  it.each(["pull", "button", "retry"] as const)("announces synchronous throw during %s", async (method) => {
+    const { getCircle, observed } = await prepareUpdate(method);
+    getCircle.mockImplementationOnce(() => { throw networkFailure(); });
+    await performUpdate(method);
+    expect(screen.getByText("オフラインです")).toBeTruthy();
+    expect(observed.mock.results.every((result) => !result.value.isLoading)).toBe(true);
+    expectAnnouncements("情報を更新中です", "情報を更新できませんでした");
+  });
+
+  it.each(fastUpdates)("announces $method $outcome without rendering intermediate loading", async ({ method, outcome }) => {
+    // Keep the real Hook/Store and operation callbacks. Hold the last settled
+    // snapshot and suppress loading notifications so no render observes it.
+    const original = React.useSyncExternalStore;
+    jest.spyOn(jest.requireActual<typeof React>("react"), "useSyncExternalStore").mockImplementation(function useSettledSnapshot(subscribe, getSnapshot, getServerSnapshot) {
+      const settled = React.useRef(getSnapshot());
+      const getSettledSnapshot = () => {
+        const snapshot = getSnapshot();
+        if (!(snapshot as { isLoading?: boolean }).isLoading) settled.current = snapshot;
+        return settled.current;
+      };
+      return original((notify) => subscribe(() => {
+        if (!(getSnapshot() as { isLoading?: boolean }).isLoading) notify();
+      }), getSettledSnapshot, getServerSnapshot);
+    });
+    const { getCircle, observed } = await prepareUpdate(method);
+    if (outcome === "success") {
+      getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1, { headline: "描画省略後の更新" })));
+    } else {
+      getCircle.mockRejectedValueOnce(networkFailure());
+    }
+    await performUpdate(method);
+    expect(observed.mock.calls.length).toBeGreaterThan(0);
+    expect(observed.mock.results.every((result) => !result.value.isLoading)).toBe(true);
+    expectAnnouncements("情報を更新中です", outcome === "success"
+      ? "情報を更新しました" : "情報を更新できませんでした");
+    if (outcome === "success") expect(screen.getByText("描画省略後の更新")).toBeTruthy();
+    else expect(screen.getByText("オフラインです")).toBeTruthy();
+  });
+
+  it("does not duplicate update announcements across Strict Mode unmount/remount", async () => {
+    const oldUpdate = deferred<ReturnType<typeof makeDetailResponse>>();
+    const nextUpdate = deferred<ReturnType<typeof makeDetailResponse>>();
+    const { api, getCircle } = createMockApi();
+    getCircle.mockResolvedValue(makeDetailResponse(makeDetail(1)));
+    const view = <React.StrictMode><CircleDetailScreen /></React.StrictMode>;
+    const rendered = await renderWithApi(view, api);
+    await screen.findByText("テストサークル1");
+    expectAnnouncements();
+    getCircle.mockReturnValueOnce(oldUpdate.promise);
+    await pullToRefresh();
+    const signal = getCircle.mock.calls.at(-1)?.[1]?.signal;
+    await rendered.unmount();
+    expect(signal?.aborted).toBe(true);
+    await renderWithApi(view, api);
+    await screen.findByText("テストサークル1");
+    await act(async () => oldUpdate.resolve(makeDetailResponse(makeDetail(1))));
+    expectAnnouncements("情報を更新中です");
+    getCircle.mockReturnValueOnce(nextUpdate.promise);
+    await pullToRefresh();
+    await act(async () => nextUpdate.resolve(makeDetailResponse(makeDetail(1))));
+    expectAnnouncements("情報を更新中です", "情報を更新中です", "情報を更新しました");
+  });
+
+  it("unsubscribes from a replaced API even when the Circle ID is unchanged", async () => {
+    const pending = deferred<ReturnType<typeof makeDetailResponse>>();
+    const first = createMockApi();
+    const second = createMockApi();
+    first.getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
+      .mockReturnValueOnce(pending.promise);
+    second.getCircle.mockResolvedValue(makeDetailResponse(makeDetail(1, { headline: "新しい取得元" })));
+    const rendered = await renderWithApi(<CircleDetailScreen />, first.api);
+    await screen.findByText("テストサークル1");
+    await pullToRefresh();
+    await rendered.rerender(<CirclesApiProvider value={second.api}><CircleDetailScreen /></CirclesApiProvider>);
+    await screen.findByText("新しい取得元");
+    expect(first.getCircle.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
+    await act(async () => pending.reject(networkFailure()));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expectAnnouncements("情報を更新中です");
   });
 
 });

@@ -1,5 +1,5 @@
 import { ApiClientError } from "../src/api";
-import { CircleDetailStore } from "../src/circles/circle-detail-store";
+import { CircleDetailStore, type CircleDetailUpdateEvent } from "../src/circles/circle-detail-store";
 import { circleId, createMockApi, makeDetail, makeDetailResponse, networkFailure } from "../test-support/circles";
 
 function deferred<Value>() {
@@ -103,4 +103,83 @@ describe("CircleDetailStore", () => {
     store.refresh(); await settle();
     expect(store.getSnapshot().circle?.id).toBe(circleId(1));
   });
+
+  it.each(["success", "failure", "cancelled"] as const)("emits one accepted lifecycle for %s and coalesces other operations", async (outcome) => {
+    const pending = deferred<ReturnType<typeof makeDetailResponse>>();
+    const { api, getCircle } = createMockApi();
+    getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
+      .mockReturnValueOnce(pending.promise);
+    const store = new CircleDetailStore(api, circleId(1));
+    const events: CircleDetailUpdateEvent[] = [];
+    store.subscribeToUpdates((event) => events.push(event));
+    store.start();
+    await settle();
+    expect(events).toEqual([]); // Initial read belongs to Skeleton.
+    const last = store.getSnapshot();
+    store.refresh(); store.refresh(); store.retry(); store.start();
+    expect(getCircle).toHaveBeenCalledTimes(2);
+    expect(events).toEqual([{ operationId: expect.any(Number), phase: "start" }]);
+    const operationId = events[0].operationId;
+    if (outcome === "success") pending.resolve(makeDetailResponse(makeDetail(1)));
+    else if (outcome === "failure") pending.reject(networkFailure());
+    else pending.reject(new ApiClientError({ kind: "cancelled" }));
+    await settle();
+    expect(events).toEqual([{ operationId, phase: "start" }, { operationId, phase: outcome }]);
+    expect(store.getSnapshot()).toMatchObject({ isLoading: false, isRefreshing: false });
+    if (outcome !== "success") {
+      expect(store.getSnapshot().circle).toBe(last.circle);
+      expect(store.getSnapshot().lastUpdatedAt).toBe(last.lastUpdatedAt);
+    }
+  });
+
+  it("emits synchronous failure and assigns a fresh ID to a subsequent retry", async () => {
+    const { api, getCircle } = createMockApi();
+    getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
+      .mockImplementationOnce(() => { throw networkFailure(); })
+      .mockResolvedValueOnce(makeDetailResponse(makeDetail(1)));
+    const store = new CircleDetailStore(api, circleId(1));
+    store.start(); await settle();
+    const events: CircleDetailUpdateEvent[] = [];
+    store.subscribeToUpdates((event) => events.push(event));
+    store.refresh();
+    expect(events.map((event) => event.phase)).toEqual(["start", "failure"]);
+    store.retry();
+    expect(store.getSnapshot()).toMatchObject({ isLoading: true, isRefreshing: false });
+    await settle();
+    expect(events.map((event) => event.phase)).toEqual(["start", "failure", "start", "success"]);
+    expect(events[0].operationId).toBe(events[1].operationId);
+    expect(events[2].operationId).toBe(events[3].operationId);
+    expect(events[2].operationId).toBeGreaterThan(events[0].operationId);
+  });
+
+  it.each(["resolve", "reject"] as const)("cancels once on stop and ignores a late %s after restart", async (outcome) => {
+    const pending = deferred<ReturnType<typeof makeDetailResponse>>();
+    const { api, getCircle } = createMockApi();
+    getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce(makeDetailResponse(makeDetail(1, { headline: "new generation" })));
+    const store = new CircleDetailStore(api, circleId(1));
+    store.start(); await settle();
+    const events: CircleDetailUpdateEvent[] = [];
+    const unsubscribe = store.subscribeToUpdates((event) => events.push(event));
+    store.refresh();
+    const signal = getCircle.mock.calls[1]?.[1]?.signal;
+    store.stop(); store.stop();
+    expect(signal?.aborted).toBe(true);
+    expect(events.map((event) => event.phase)).toEqual(["start", "cancelled"]);
+    unsubscribe();
+    const current = jest.fn();
+    store.subscribeToUpdates(current);
+    expect(current).not.toHaveBeenCalled(); // No replay on effect reactivation.
+    store.start(); store.refresh(); await settle();
+    expect(current.mock.calls.map(([event]) => event.phase)).toEqual(["start", "success"]);
+    const latest = store.getSnapshot();
+    if (outcome === "resolve") pending.resolve(makeDetailResponse(makeDetail(9)));
+    else pending.reject(networkFailure());
+    await settle();
+    expect(store.getSnapshot()).toBe(latest);
+    expect(current).toHaveBeenCalledTimes(2);
+    expect(events.map((event) => event.phase)).toEqual(["start", "cancelled"]);
+  });
+
 });
