@@ -201,22 +201,56 @@ export default function CircleDetailScreen() {
   const resolvedCircleId = Array.isArray(circleId) ? circleId[0] : circleId;
   const detail = useCircleDetail(resolvedCircleId);
 
-  const previousRefresh = useRef({ circleId: resolvedCircleId, refreshing: false });
+  const previousLoad = useRef({
+    circleId: resolvedCircleId,
+    source: detail.refresh,
+    isLoading: detail.isLoading,
+    pendingUpdate: null as { lastUpdatedAt: Date | null } | null,
+  });
 
   useEffect(() => {
-    const previous = previousRefresh.current;
-    if (detail.isRefreshing) {
+    const previous = previousLoad.current;
+    // A replacement store (even for the same ID) cannot finish the previous store's update.
+    const sameSource =
+      previous.circleId === resolvedCircleId && previous.source === detail.refresh;
+    let pendingUpdate = sameSource ? previous.pendingUpdate : null;
+
+    if (sameSource && !previous.isLoading && detail.isLoading && detail.circle) {
+      pendingUpdate = { lastUpdatedAt: detail.lastUpdatedAt };
       AccessibilityInfo.announceForAccessibility("情報を更新中です");
-    } else if (previous.circleId === resolvedCircleId && previous.refreshing) {
-      AccessibilityInfo.announceForAccessibility(
-        detail.error ? "情報を更新できませんでした" : "情報を更新しました",
-      );
+    } else if (
+      sameSource && previous.isLoading && !detail.isLoading && pendingUpdate
+    ) {
+      if (detail.error) {
+        AccessibilityInfo.announceForAccessibility("情報を更新できませんでした");
+      } else if (detail.lastUpdatedAt !== pendingUpdate.lastUpdatedAt) {
+        // stop()/cancellation also ends loading; only a successful read advances this value.
+        AccessibilityInfo.announceForAccessibility("情報を更新しました");
+      }
+      pendingUpdate = null;
     }
-    previousRefresh.current = {
+
+    previousLoad.current = {
       circleId: resolvedCircleId,
-      refreshing: detail.isRefreshing,
+      source: detail.refresh,
+      isLoading: detail.isLoading,
+      pendingUpdate,
     };
-  }, [detail.error, detail.isRefreshing, resolvedCircleId]);
+  }, [
+    detail.circle,
+    detail.error,
+    detail.isLoading,
+    detail.lastUpdatedAt,
+    detail.refresh,
+    resolvedCircleId,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      // Effect cleanup is cancellation, never a successful announcement on reactivation.
+      previousLoad.current.pendingUpdate = null;
+    };
+  }, []);
 
   let body: ReactElement;
 

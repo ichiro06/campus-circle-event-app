@@ -2,6 +2,8 @@ import { act, fireEvent, screen } from "@testing-library/react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { AccessibilityInfo } from "react-native";
 
+import { ApiClientError } from "../src/api";
+import * as detailHook from "../src/circles/use-circle-detail";
 import { CirclesApiProvider } from "../src/circles/circles-api-context";
 
 import CircleDetailScreen from "../src/app/circles/[circleId]";
@@ -32,7 +34,14 @@ function deferred<Value>() {
 const mockParams = useLocalSearchParams as jest.Mock;
 
 describe("CircleDetailScreen", () => {
+  let announce: jest.SpyInstance;
+
+  function expectAnnouncements(...messages: string[]) {
+    expect(announce.mock.calls).toEqual(messages.map((message) => [message]));
+  }
+
   beforeEach(() => {
+    announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
     mockParams.mockReturnValue({ circleId: circleId(1) });
     jest.mocked(router.canGoBack).mockReturnValue(true);
   });
@@ -40,6 +49,7 @@ describe("CircleDetailScreen", () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   it("requests the Circle named by the route", async () => {
@@ -240,7 +250,6 @@ describe("CircleDetailScreen", () => {
   }
 
   it("refreshes the current ID, keeps data while pending and announces completion", async () => {
-    const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
     const pending = deferred<ReturnType<typeof makeDetailResponse>>();
     const { api, getCircle } = createMockApi();
     getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
@@ -254,13 +263,12 @@ describe("CircleDetailScreen", () => {
     expect(screen.getByTestId("circle-detail-scroll").props.refreshControl.props.refreshing).toBe(true);
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.getByRole("button", { name: "情報を更新中です" })).toBeDisabled();
-    expect(announce).toHaveBeenCalledWith("情報を更新中です");
+    expectAnnouncements("情報を更新中です");
 
     await act(async () => pending.resolve(makeDetailResponse(makeDetail(1, { displayName: "更新したサークル" }))));
     expect(await screen.findByText("更新したサークル")).toBeTruthy();
     expect(screen.getByTestId("circle-detail-scroll").props.refreshControl.props.refreshing).toBe(false);
-    expect(announce).toHaveBeenCalledWith("情報を更新しました");
-    announce.mockRestore();
+    expectAnnouncements("情報を更新中です", "情報を更新しました");
   });
 
   it.each([
@@ -285,12 +293,16 @@ describe("CircleDetailScreen", () => {
   });
 
   it("offers an ordinary refresh button without requiring a gesture", async () => {
+    const pending = deferred<ReturnType<typeof makeDetailResponse>>();
     const { api, getCircle } = createMockApi();
     getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
-      .mockResolvedValueOnce(makeDetailResponse(makeDetail(1, { headline: "新しい紹介" })));
+      .mockReturnValueOnce(pending.promise);
     await renderWithApi(<CircleDetailScreen />, api);
     await fireEvent.press(await screen.findByRole("button", { name: "情報を更新" }));
+    expectAnnouncements("情報を更新中です");
+    await act(async () => pending.resolve(makeDetailResponse(makeDetail(1, { headline: "新しい紹介" }))));
     expect(await screen.findByText("新しい紹介")).toBeTruthy();
+    expectAnnouncements("情報を更新中です", "情報を更新しました");
     expect(getCircle).toHaveBeenCalledTimes(2);
   });
 
@@ -304,7 +316,9 @@ describe("CircleDetailScreen", () => {
     await pullToRefresh();
     await pullToRefresh();
     expect(getCircle).toHaveBeenCalledTimes(2);
+    expectAnnouncements("情報を更新中です");
     await act(async () => pending.resolve(makeDetailResponse(makeDetail(1))));
+    expectAnnouncements("情報を更新中です", "情報を更新しました");
   });
 
   it("aborts a pending refresh when unmounted and fetches anew on return", async () => {
@@ -324,14 +338,18 @@ describe("CircleDetailScreen", () => {
     await act(async () => pending.resolve(makeDetailResponse(makeDetail(1, { displayName: "古い応答" }))));
     expect(screen.queryByText("古い応答")).toBeNull();
     expect(screen.getByText("戻った画面")).toBeTruthy();
+    expectAnnouncements("情報を更新中です");
   });
 
   it("isolates another Circle ID from late refresh responses", async () => {
+    const observedDetail = jest.spyOn(detailHook, "useCircleDetail");
+    const nextRefresh = deferred<ReturnType<typeof makeDetailResponse>>();
     const pending = deferred<ReturnType<typeof makeDetailResponse>>();
     const { api, getCircle } = createMockApi();
     getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
       .mockReturnValueOnce(pending.promise)
-      .mockResolvedValueOnce(makeDetailResponse(makeDetail(2)));
+      .mockResolvedValueOnce(makeDetailResponse(makeDetail(2)))
+      .mockReturnValueOnce(nextRefresh.promise);
     const rendered = await renderWithApi(<CircleDetailScreen />, api);
     await screen.findByText("テストサークル1");
     await pullToRefresh();
@@ -342,8 +360,130 @@ describe("CircleDetailScreen", () => {
     expect(signal?.aborted).toBe(true);
     await act(async () => pending.resolve(makeDetailResponse(makeDetail(1))));
     expect(screen.queryByText("テストサークル1")).toBeNull();
+    expectAnnouncements("情報を更新中です");
     await pullToRefresh();
+    expect(getCircle).toHaveBeenCalledTimes(4);
     expect(getCircle).toHaveBeenLastCalledWith(circleId(2), expect.anything());
+    expectAnnouncements("情報を更新中です", "情報を更新中です");
+    await act(async () => nextRefresh.resolve(makeDetailResponse(makeDetail(2, {
+      headline: "切替先の更新済み情報",
+    }))));
+    expect(await screen.findByText("切替先の更新済み情報")).toBeTruthy();
+    expect(screen.queryByText("テストサークル1")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(observedDetail.mock.results.at(-1)?.value).toMatchObject({
+      error: null,
+      isLoading: false,
+      isRefreshing: false,
+    });
+    const updateButton = screen.getByRole("button", { name: "情報を更新" });
+    expect(updateButton).toBeEnabled();
+    expect(updateButton.props.accessibilityState.busy).toBe(false);
+    expect(screen.getByTestId("circle-detail-scroll").props.refreshControl.props.refreshing).toBe(false);
+    expectAnnouncements("情報を更新中です", "情報を更新中です", "情報を更新しました");
+  });
+
+  it("announces a failed refresh exactly once at start and completion", async () => {
+    const pending = deferred<ReturnType<typeof makeDetailResponse>>();
+    const { api, getCircle } = createMockApi();
+    getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
+      .mockReturnValueOnce(pending.promise);
+    await renderWithApi(<CircleDetailScreen />, api);
+    await screen.findByText("テストサークル1");
+    await pullToRefresh();
+    expectAnnouncements("情報を更新中です");
+    await act(async () => pending.reject(networkFailure()));
+    expect(await screen.findByText("オフラインです")).toBeTruthy();
+    expect(screen.getByText("テストサークル1")).toBeTruthy();
+    expectAnnouncements("情報を更新中です", "情報を更新できませんでした");
+  });
+
+  it.each(["success", "failure"] as const)("announces retained-data retry start and %s", async (outcome) => {
+    const failedRefresh = deferred<ReturnType<typeof makeDetailResponse>>();
+    const retry = deferred<ReturnType<typeof makeDetailResponse>>();
+    const { api, getCircle } = createMockApi();
+    getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
+      .mockReturnValueOnce(failedRefresh.promise)
+      .mockReturnValueOnce(retry.promise);
+    await renderWithApi(<CircleDetailScreen />, api);
+    await screen.findByText("テストサークル1");
+    await pullToRefresh();
+    await act(async () => failedRefresh.reject(networkFailure()));
+    expectAnnouncements("情報を更新中です", "情報を更新できませんでした");
+    announce.mockClear();
+
+    await fireEvent.press(screen.getByRole("button", { name: "再試行" }));
+    expectAnnouncements("情報を更新中です");
+    expect(screen.getByText("テストサークル1")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "情報を更新中です" })).toBeDisabled();
+    // Retry is still distinct from an explicit refresh.
+    expect(screen.getByTestId("circle-detail-scroll").props.refreshControl.props.refreshing).toBe(false);
+    await act(async () => {
+      if (outcome === "success") {
+        retry.resolve(makeDetailResponse(makeDetail(1, { headline: "再試行で更新" })));
+      } else {
+        retry.reject(problemFailure(503, "SERVICE_UNAVAILABLE"));
+      }
+    });
+    if (outcome === "success") {
+      expect(await screen.findByText("再試行で更新")).toBeTruthy();
+      expect(screen.queryByRole("alert")).toBeNull();
+    } else {
+      expect(await screen.findByText("一時的に利用できません")).toBeTruthy();
+    }
+    expect(screen.getByRole("button", { name: "情報を更新" })).toBeEnabled();
+    expectAnnouncements("情報を更新中です", outcome === "success"
+      ? "情報を更新しました" : "情報を更新できませんでした");
+  });
+
+  it("does not duplicate initial Skeleton notifications", async () => {
+    jest.useFakeTimers();
+    const pending = deferred<ReturnType<typeof makeDetailResponse>>();
+    const { api, getCircle } = createMockApi();
+    getCircle.mockReturnValue(pending.promise);
+    await renderWithApi(<CircleDetailScreen />, api);
+    expectAnnouncements();
+    await act(async () => jest.advanceTimersByTime(300));
+    expect(screen.getByRole("progressbar")).toBeTruthy();
+    expectAnnouncements("読み込み中です");
+    await act(async () => pending.resolve(makeDetailResponse(makeDetail(1))));
+    expect(screen.getByText("テストサークル1")).toBeTruthy();
+    expectAnnouncements("読み込み中です", "読み込みが終わりました");
+  });
+
+  it("does not announce successful completion for a cancelled re-fetch", async () => {
+    const pending = deferred<ReturnType<typeof makeDetailResponse>>();
+    const { api, getCircle } = createMockApi();
+    getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
+      .mockReturnValueOnce(pending.promise);
+    await renderWithApi(<CircleDetailScreen />, api);
+    await screen.findByText("テストサークル1");
+    await pullToRefresh();
+    await act(async () => pending.reject(new ApiClientError({ kind: "cancelled" })));
+    expect(screen.getByRole("button", { name: "情報を更新" })).toBeEnabled();
+    expectAnnouncements("情報を更新中です");
+  });
+
+  it("does not repeat retry notifications for duplicate operations or unrelated renders", async () => {
+    const observedDetail = jest.spyOn(detailHook, "useCircleDetail");
+    const retry = deferred<ReturnType<typeof makeDetailResponse>>();
+    const { api, getCircle } = createMockApi();
+    getCircle.mockResolvedValueOnce(makeDetailResponse(makeDetail(1)))
+      .mockRejectedValueOnce(networkFailure())
+      .mockReturnValueOnce(retry.promise);
+    const rendered = await renderWithApi(<CircleDetailScreen />, api);
+    await screen.findByText("テストサークル1");
+    await pullToRefresh();
+    const onRetry = observedDetail.mock.results.at(-1)?.value.retry;
+    announce.mockClear();
+    await act(async () => { onRetry(); onRetry(); });
+    await pullToRefresh();
+    await rendered.rerender(<CirclesApiProvider value={api}><CircleDetailScreen /></CirclesApiProvider>);
+    expect(getCircle).toHaveBeenCalledTimes(3);
+    expectAnnouncements("情報を更新中です");
+    expect(screen.getByTestId("circle-detail-scroll").props.refreshControl.props.refreshing).toBe(false);
+    await act(async () => retry.resolve(makeDetailResponse(makeDetail(1))));
+    expectAnnouncements("情報を更新中です", "情報を更新しました");
   });
 
 });
