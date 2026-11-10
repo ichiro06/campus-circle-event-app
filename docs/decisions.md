@@ -1191,13 +1191,13 @@ Notion DEC-069が「今回のHuman Approvalの範囲外」とした項目であ�
 ## DEC-070: モバイルのicon setにSF Symbols（iOS）とMaterial Symbols（Android）を採用する
 
 - 日付: 2026-11-11
-- 状態: 採用
+- 状態: 採用（Notion意思決定ログ上のステータスは、同DBに「採用」optionがないため既存の完了系option「決定」である。DEC-062〜DEC-069と同じ扱い）
 - 決定内容: Human Decision（2026-11-11、承認者: 一朗、Human Approved: YES）。製品モバイルclientのicon setとして、iOSはSF Symbols、AndroidはMaterial Symbolsを採用する。実装には導入済みの`expo-symbols`を使う。最初の適用対象は下部4タブ（ホーム・検索・お気に入り・マイページ）とする。
   - 未選択のタブは線（outline）アイコンを使う。
   - 選択中のタブは、platformの慣例に従い塗り（fill）のアイコンを使う。
 - 決定理由: 4タブに`tabBarIcon`の指定がなく、React Navigationのアイコン未指定時のplaceholderが四角として表示されていた。`docs/ui-design-guidelines.md`はiOSでApple HIG、AndroidでMaterial Design 3を第一参照とするため、各platform標準のsymbol setを使う。`expo-symbols`は`mobile/package.json`に導入済みで、依存の追加がない。
 - 旧方針: icon setを正式採用していなかった（`docs/ui-design-guidelines.md` 8節）。
-- 根拠: 一朗の依頼と承認（2026-11-11、Claude Projects thread）、PR #51。Notion意思決定ログへの登録は、本PR作成時点で未実施である。
+- 根拠: 一朗の依頼と承認（2026-11-11、Claude Projects thread）、Notion DEC-070（意思決定ログ、2026-11-11登録）、PR #51。
 
 ### 8節が求める判断の記録
 
