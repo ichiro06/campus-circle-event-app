@@ -10,7 +10,7 @@ import {
 } from "../test-support/circles";
 import { renderWithApi } from "../test-support/render";
 
-import { TAB_ROUTES } from "../src/app/(tabs)/_layout";
+import { TAB_ICONS, TAB_ROUTES } from "../src/app/(tabs)/_layout";
 import FavoritesScreen from "../src/app/(tabs)/favorites";
 import HomeScreen from "../src/app/(tabs)/index";
 import MyPageScreen from "../src/app/(tabs)/me";
@@ -37,6 +37,16 @@ describe("mobile navigation shell", () => {
       { name: "favorites", title: "お気に入り" },
       { name: "me", title: "マイページ" },
     ]);
+  });
+
+  it("gives every tab an outline icon on iOS and Android", () => {
+    expect(TAB_ICONS).toEqual({
+      index: { ios: "house", android: "home", web: "home" },
+      search: { ios: "magnifyingglass", android: "search", web: "search" },
+      favorites: { ios: "heart", android: "favorite", web: "favorite" },
+      me: { ios: "person", android: "person", web: "person" },
+    });
+    expect(Object.keys(TAB_ICONS)).toEqual(TAB_ROUTES.map(({ name }) => name));
   });
 
   it("keeps Circle detail above the tab group in the root stack", () => {
