@@ -39,14 +39,23 @@ describe("mobile navigation shell", () => {
     ]);
   });
 
-  it("gives every tab an outline icon on iOS and Android", () => {
-    expect(TAB_ICONS).toEqual({
-      index: { ios: "house", android: "home", web: "home" },
-      search: { ios: "magnifyingglass", android: "search", web: "search" },
-      favorites: { ios: "heart", android: "favorite", web: "favorite" },
-      me: { ios: "person", android: "person", web: "person" },
-    });
+  it("gives every tab an outline icon and a selected icon", () => {
     expect(Object.keys(TAB_ICONS)).toEqual(TAB_ROUTES.map(({ name }) => name));
+    expect(TAB_ICONS.index.default).toEqual({
+      ios: "house",
+      android: "home",
+      web: "home",
+    });
+    expect(TAB_ICONS.search.default.ios).toBe("magnifyingglass");
+    expect(TAB_ICONS.favorites.default.ios).toBe("heart");
+    expect(TAB_ICONS.me.default.ios).toBe("person");
+  });
+
+  it("fills the selected tab icon on iOS where SF Symbols has a filled variant", () => {
+    expect(TAB_ICONS.index.selected.ios).toBe("house.fill");
+    expect(TAB_ICONS.favorites.selected.ios).toBe("heart.fill");
+    expect(TAB_ICONS.me.selected.ios).toBe("person.fill");
+    expect(TAB_ICONS.search.selected.ios).toBe("magnifyingglass");
   });
 
   it("keeps Circle detail above the tab group in the root stack", () => {

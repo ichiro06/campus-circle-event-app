@@ -12,25 +12,53 @@ export const TAB_ROUTES = [
 type TabRouteName = (typeof TAB_ROUTES)[number]["name"];
 
 /**
- * Outline (line) icons from each platform's own symbol set: SF Symbols on iOS
- * (Apple HIG) and Material Symbols on Android (Material Design 3).
+ * Tab icons from each platform's own symbol set: SF Symbols on iOS (Apple HIG)
+ * and Material Symbols on Android (Material Design 3). DEC-070.
+ *
+ * Unselected tabs use the outline icon. On iOS the selected tab switches to the
+ * filled variant where SF Symbols has one; `magnifyingglass` has none. The
+ * Material Symbols font that expo-symbols bundles is outline-only, so Android
+ * keeps the outline icon when selected.
  */
 export const TAB_ICONS = {
-  index: { ios: "house", android: "home", web: "home" },
-  search: { ios: "magnifyingglass", android: "search", web: "search" },
-  favorites: { ios: "heart", android: "favorite", web: "favorite" },
-  me: { ios: "person", android: "person", web: "person" },
-} as const satisfies Record<TabRouteName, SymbolViewProps["name"]>;
+  index: {
+    default: { ios: "house", android: "home", web: "home" },
+    selected: { ios: "house.fill", android: "home", web: "home" },
+  },
+  search: {
+    default: { ios: "magnifyingglass", android: "search", web: "search" },
+    selected: { ios: "magnifyingglass", android: "search", web: "search" },
+  },
+  favorites: {
+    default: { ios: "heart", android: "favorite", web: "favorite" },
+    selected: { ios: "heart.fill", android: "favorite", web: "favorite" },
+  },
+  me: {
+    default: { ios: "person", android: "person", web: "person" },
+    selected: { ios: "person.fill", android: "person", web: "person" },
+  },
+} as const satisfies Record<
+  TabRouteName,
+  Record<"default" | "selected", SymbolViewProps["name"]>
+>;
 
 function createTabIcon(routeName: TabRouteName) {
   // The tab label already names the destination, so the icon stays decorative
   // and the screen reader announces the tab only once.
-  function TabIcon({ color, size }: { color: ColorValue; size: number }) {
+  function TabIcon({
+    color,
+    focused,
+    size,
+  }: {
+    color: ColorValue;
+    focused: boolean;
+    size: number;
+  }) {
     return (
       <SymbolView
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        name={TAB_ICONS[routeName]}
+        name={TAB_ICONS[routeName][focused ? "selected" : "default"]}
         size={size}
         tintColor={color}
       />
