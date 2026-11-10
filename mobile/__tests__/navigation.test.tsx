@@ -10,7 +10,7 @@ import {
 } from "../test-support/circles";
 import { renderWithApi } from "../test-support/render";
 
-import { TAB_ROUTES } from "../src/app/(tabs)/_layout";
+import { TAB_ICONS, TAB_ROUTES } from "../src/app/(tabs)/_layout";
 import FavoritesScreen from "../src/app/(tabs)/favorites";
 import HomeScreen from "../src/app/(tabs)/index";
 import MyPageScreen from "../src/app/(tabs)/me";
@@ -37,6 +37,25 @@ describe("mobile navigation shell", () => {
       { name: "favorites", title: "お気に入り" },
       { name: "me", title: "マイページ" },
     ]);
+  });
+
+  it("gives every tab an outline icon and a selected icon", () => {
+    expect(Object.keys(TAB_ICONS)).toEqual(TAB_ROUTES.map(({ name }) => name));
+    expect(TAB_ICONS.index.default).toEqual({
+      ios: "house",
+      android: "home",
+      web: "home",
+    });
+    expect(TAB_ICONS.search.default.ios).toBe("magnifyingglass");
+    expect(TAB_ICONS.favorites.default.ios).toBe("heart");
+    expect(TAB_ICONS.me.default.ios).toBe("person");
+  });
+
+  it("fills the selected tab icon on iOS where SF Symbols has a filled variant", () => {
+    expect(TAB_ICONS.index.selected.ios).toBe("house.fill");
+    expect(TAB_ICONS.favorites.selected.ios).toBe("heart.fill");
+    expect(TAB_ICONS.me.selected.ios).toBe("person.fill");
+    expect(TAB_ICONS.search.selected.ios).toBe("magnifyingglass");
   });
 
   it("keeps Circle detail above the tab group in the root stack", () => {

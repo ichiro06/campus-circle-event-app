@@ -246,7 +246,7 @@ componentは見た目だけでなく、次のbehaviorを定義してから実装
 - hit areaとgesture
 - dataが未取得・取得済み・古い・失敗した状態
 
-現時点では、特定のUI component library、デザイントークンの体系、具体的な色値、font family、icon setを正式採用しない。ただし、白を基調としLiquid Glassを用いるという方向性はDEC-069で承認済みである（1.1節）。具体的なtokenと色値は後続の技術設計で決める。実装時に選定が必要になった場合は、依存追加・保守・両platform対応を含む別の判断として記録する。
+現時点では、特定のUI component library、デザイントークンの体系、具体的な色値、font familyを正式採用しない。icon setはDEC-070（2026-11-11）で、iOSはSF Symbols、AndroidはMaterial Symbolsを採用した（`expo-symbols`を使用。詳細と未決事項は [decisions.md](decisions.md) のDEC-070）。ただし、白を基調としLiquid Glassを用いるという方向性はDEC-069で承認済みである（1.1節）。具体的なtokenと色値は後続の技術設計で決める。実装時に選定が必要になった場合は、依存追加・保守・両platform対応を含む別の判断として記録する。
 
 ## 9. Typography and Layout
 

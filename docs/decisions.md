@@ -1188,6 +1188,32 @@ Notion DEC-069が「今回のHuman Approvalの範囲外」とした項目であ�
 - `MOBILE_UI_IMPLEMENTATION = NOT_COMPLETE`
 - `S5_D4_BACKEND_SCOPE = UNCHANGED`（Notion DEC-069の記載）
 
+## DEC-070: モバイルのicon setにSF Symbols（iOS）とMaterial Symbols（Android）を採用する
+
+- 日付: 2026-11-11
+- 状態: 採用（Notion意思決定ログ上のステータスは、同DBに「採用」optionがないため既存の完了系option「決定」である。DEC-062〜DEC-069と同じ扱い）
+- 決定内容: Human Decision（2026-11-11、承認者: 一朗、Human Approved: YES）。製品モバイルclientのicon setとして、iOSはSF Symbols、AndroidはMaterial Symbolsを採用する。実装には導入済みの`expo-symbols`を使う。最初の適用対象は下部4タブ（ホーム・検索・お気に入り・マイページ）とする。
+  - 未選択のタブは線（outline）アイコンを使う。
+  - 選択中のタブは、platformの慣例に従い塗り（fill）のアイコンを使う。
+- 決定理由: 4タブに`tabBarIcon`の指定がなく、React Navigationのアイコン未指定時のplaceholderが四角として表示されていた。`docs/ui-design-guidelines.md`はiOSでApple HIG、AndroidでMaterial Design 3を第一参照とするため、各platform標準のsymbol setを使う。`expo-symbols`は`mobile/package.json`に導入済みで、依存の追加がない。
+- 旧方針: icon setを正式採用していなかった（`docs/ui-design-guidelines.md` 8節）。
+- 根拠: 一朗の依頼と承認（2026-11-11、Claude Projects thread）、Notion DEC-070（意思決定ログ、2026-11-11登録）、PR #51。
+
+### 8節が求める判断の記録
+
+- 依存追加: なし。`expo-symbols`（MIT）と、その依存である`@expo-google-fonts/material-symbols`を使う。`mobile/package.json`と`mobile/package-lock.json`は変更しない。
+- 両platform対応: iOSはOS内蔵のSF Symbolsを使う。AndroidはMaterial Symbolsのfont（400Regular）をアプリに同梱して表示する。
+- アプリサイズ: Androidではfont 1ファイル（`node_modules`上で約1.1MB）が加わる。実際のbuildでの増加量は未計測である。
+- 保守: タブのアイコン名は`mobile/src/app/(tabs)/_layout.tsx`の`TAB_ICONS`で管理する。
+
+### 実装状態と未決事項（事実の記録）
+
+- iOS: 選択中はホーム`house.fill`、お気に入り`heart.fill`、マイページ`person.fill`を使う。検索の`magnifyingglass`はSF Symbolsに塗りのvariantがないため、選択中も同じアイコンを使う。
+- Android: `expo-symbols`が同梱するMaterial Symbolsのfontは線（outline）のみのstatic fontで、塗りのglyphを持たない（font fileにvariation axisがないことを確認）。このため、Androidの選択中のタブは線アイコンのまま、色とlabelで選択を示す。Androidで塗りのアイコンを表示するには別のfontまたは依存が必要であり、その採否は未決である。
+- 4タブ以外の画面・componentでどのsymbolを使うかは、本Decisionでは決めない。
+- DEC-069のLiquid Glassをtab barへ適用するかは、DEC-069の後続技術設計事項のままである。本Decisionは変更しない。
+- iOS Simulator・Android Emulator・実機での表示確認は、PR #51作成時点で未実施である。
+
 ## 要確認・次workへ引き継ぐ項目
 
 - サービスの正式名称、大学名・公開情報の利用確認
